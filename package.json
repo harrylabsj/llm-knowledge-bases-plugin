@@ -1,7 +1,8 @@
 {
   "name": "@harrylabsj/openclaw-llm-knowledge-bases-plugin",
-  "version": "0.1.0",
-  "description": "OpenClaw plugin for a Karpathy-inspired LLM knowledge base workflow over a controlled Obsidian vault.",
+  "version": "0.1.1",
+  "displayName": "LLM Knowledge Bases Plugin",
+  "description": "Inspired by a public workflow shared by Andrej Karpathy (@karpathy). A deterministic OpenClaw plugin for turning raw research into a living Markdown knowledge base over a controlled Obsidian vault.",
   "license": "MIT",
   "author": "harrylabsj",
   "type": "module",

@@ -2,7 +2,9 @@
 
 Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown knowledge base that compounds with every question.
 
-If you want the workflow-first entry point, start with the companion [LLM Knowledge Bases skill](https://github.com/harrylabsj/openclaw-skill-llm-knowledge-bases). This plugin provides the deterministic vault runtime behind that same workflow.
+This plugin is the deterministic OpenClaw runtime behind that workflow. It keeps vault writes, note structure, and index rebuilding auditable while still giving you a practical local-first knowledge base loop.
+
+If you want the workflow-first entry point, start with the companion [LLM Knowledge Bases skill](https://github.com/harrylabsj/openclaw-skill-llm-knowledge-bases). Use this plugin when you want the underlying vault runtime as a standalone installable package.
 
 ## Scope
 
