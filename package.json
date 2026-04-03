@@ -1,6 +1,6 @@
 {
   "name": "llm-knowledge-bases-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "displayName": "LLM Knowledge Bases",
   "description": "Inspired by a public workflow shared by Andrej Karpathy (@karpathy). A deterministic OpenClaw plugin for turning raw research into a living Markdown knowledge base over a controlled Obsidian vault.",
   "license": "MIT",
