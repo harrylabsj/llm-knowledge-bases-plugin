@@ -1,0 +1,31 @@
+{
+  "id": "openclaw-llm-knowledge-bases",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "vaultRoot"
+    ],
+    "properties": {
+      "vaultRoot": {
+        "type": "string",
+        "description": "Absolute path to the target Obsidian vault."
+      },
+      "rawDir": {
+        "type": "string",
+        "default": "raw",
+        "description": "Relative raw input directory inside the vault."
+      },
+      "wikiDir": {
+        "type": "string",
+        "default": "wiki",
+        "description": "Relative wiki directory inside the vault."
+      },
+      "stateDir": {
+        "type": "string",
+        "default": ".llm-kb",
+        "description": "Relative plugin state directory inside the vault."
+      }
+    }
+  }
+}

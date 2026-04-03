@@ -1,0 +1,50 @@
+{
+  "name": "@harrylabsj/openclaw-llm-knowledge-bases-plugin",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin for a Karpathy-inspired LLM knowledge base workflow over a controlled Obsidian vault.",
+  "license": "MIT",
+  "author": "harrylabsj",
+  "type": "module",
+  "files": [
+    "src/",
+    "index.ts",
+    "openclaw.plugin.json",
+    "README.md",
+    "tsconfig.json",
+    "examples/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "yaml": "^2.8.1",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.4.2"
+    },
+    "install": {
+      "npmSpec": "@harrylabsj/openclaw-llm-knowledge-bases-plugin",
+      "defaultChoice": "npm"
+    }
+  }
+}
