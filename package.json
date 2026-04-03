@@ -1,5 +1,5 @@
 {
-  "name": "@harrylabsj/openclaw-llm-knowledge-bases-plugin",
+  "name": "llm-knowledge-bases-plugin",
   "version": "0.1.1",
   "displayName": "LLM Knowledge Bases Plugin",
   "description": "Inspired by a public workflow shared by Andrej Karpathy (@karpathy). A deterministic OpenClaw plugin for turning raw research into a living Markdown knowledge base over a controlled Obsidian vault.",
@@ -44,7 +44,7 @@
       "openclawVersion": "2026.4.2"
     },
     "install": {
-      "npmSpec": "@harrylabsj/openclaw-llm-knowledge-bases-plugin",
+      "npmSpec": "llm-knowledge-bases-plugin",
       "defaultChoice": "npm"
     }
   }

@@ -2,7 +2,7 @@ import path from "node:path";
 
 import type { KnowledgeBasePluginConfig } from "./types.js";
 
-export const PLUGIN_ID = "openclaw-llm-knowledge-bases";
+export const PLUGIN_ID = "llm-knowledge-bases-plugin";
 
 const DEFAULTS = {
   rawDir: "raw",

@@ -19,7 +19,7 @@ describe("config", () => {
     const config = resolveKnowledgeBaseConfigFromHostConfig({
       plugins: {
         entries: {
-          "openclaw-llm-knowledge-bases": {
+          "llm-knowledge-bases-plugin": {
             config: {
               vaultRoot: path.resolve("/tmp/vault"),
             },

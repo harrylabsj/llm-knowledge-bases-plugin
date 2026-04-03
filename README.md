@@ -120,4 +120,4 @@ npm test
 
 ## Vault template
 
-See [examples/vault-template/README.md](/Users/jianghaidong/Library/Mobile%20Documents/com~apple~CloudDocs/codex/plugins/openclaw-llm-knowledge-bases-plugin/examples/vault-template/README.md).
+See [examples/vault-template/README.md](examples/vault-template/README.md).

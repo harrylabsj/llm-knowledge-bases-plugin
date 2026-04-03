@@ -1,5 +1,5 @@
 {
-  "id": "openclaw-llm-knowledge-bases",
+  "id": "llm-knowledge-bases-plugin",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
