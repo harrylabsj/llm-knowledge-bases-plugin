@@ -1,4 +1,4 @@
-# OpenClaw LLM Knowledge Bases Plugin
+# LLM Knowledge Bases
 
 Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown knowledge base that compounds with every question.
 
