@@ -15,14 +15,24 @@ export function getVaultPaths(config: KnowledgeBasePluginConfig) {
   const raw = config.rawDir;
   const sources = `${config.wikiDir}/sources`;
   const outputs = `${config.wikiDir}/outputs`;
+  const concepts = `${config.wikiDir}/concepts`;
+  const entities = `${config.wikiDir}/entities`;
+  const syntheses = `${config.wikiDir}/syntheses`;
   const indexes = `${config.wikiDir}/_indexes`;
+  const index = `${config.wikiDir}/index.md`;
+  const log = `${config.wikiDir}/log.md`;
   const state = config.stateDir;
 
   return {
     raw,
     sources,
     outputs,
+    concepts,
+    entities,
+    syntheses,
     indexes,
+    index,
+    log,
     state,
     manifest: `${state}/manifest.json`,
     runs: `${state}/runs.jsonl`,

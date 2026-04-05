@@ -1,8 +1,9 @@
 import path from "node:path";
 
-import type { KnowledgeBasePluginConfig } from "./types.js";
+import type { KnowledgeBaseConfig } from "./types.js";
 
-export const PLUGIN_ID = "llm-knowledge-bases-plugin";
+export const OPENCLAW_PLUGIN_ID = "llm-knowledge-bases-plugin";
+export const PLUGIN_ID = OPENCLAW_PLUGIN_ID;
 
 const DEFAULTS = {
   rawDir: "raw",
@@ -10,7 +11,7 @@ const DEFAULTS = {
   stateDir: ".llm-kb",
 } as const;
 
-export const KnowledgeBasePluginConfigJsonSchema = {
+export const KnowledgeBaseConfigJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: ["vaultRoot"],
@@ -22,25 +23,27 @@ export const KnowledgeBasePluginConfigJsonSchema = {
   },
 } as const;
 
+export const KnowledgeBasePluginConfigJsonSchema = KnowledgeBaseConfigJsonSchema;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function assertRelativeDir(input: string, field: string): string {
   if (!input || path.isAbsolute(input) || input.includes("\0")) {
-    throw new Error(`[${PLUGIN_ID}] ${field} must be a non-empty relative path`);
+    throw new Error(`[${OPENCLAW_PLUGIN_ID}] ${field} must be a non-empty relative path`);
   }
   return input.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
 }
 
-export function normalizeKnowledgeBaseConfig(input: unknown): KnowledgeBasePluginConfig {
+export function normalizeKnowledgeBaseConfig(input: unknown): KnowledgeBaseConfig {
   if (!isRecord(input)) {
-    throw new Error(`[${PLUGIN_ID}] plugin config must be an object`);
+    throw new Error(`[${OPENCLAW_PLUGIN_ID}] config must be an object`);
   }
 
   const vaultRoot = input.vaultRoot;
   if (typeof vaultRoot !== "string" || !path.isAbsolute(vaultRoot)) {
-    throw new Error(`[${PLUGIN_ID}] vaultRoot must be an absolute path`);
+    throw new Error(`[${OPENCLAW_PLUGIN_ID}] vaultRoot must be an absolute path`);
   }
 
   return {
@@ -60,21 +63,27 @@ export function normalizeKnowledgeBaseConfig(input: unknown): KnowledgeBasePlugi
   };
 }
 
-export function resolveKnowledgeBaseConfigFromHostConfig(hostConfig: unknown): KnowledgeBasePluginConfig {
+export function resolveKnowledgeBaseConfigFromHostConfig(hostConfig: unknown): KnowledgeBaseConfig {
+  return resolveKnowledgeBaseConfigFromOpenClawHostConfig(hostConfig);
+}
+
+export function resolveKnowledgeBaseConfigFromOpenClawHostConfig(
+  hostConfig: unknown,
+): KnowledgeBaseConfig {
   if (!isRecord(hostConfig)) {
-    throw new Error(`[${PLUGIN_ID}] host config is not an object`);
+    throw new Error(`[${OPENCLAW_PLUGIN_ID}] host config is not an object`);
   }
 
   const pluginEntry =
     (isRecord(hostConfig.plugins) &&
       isRecord(hostConfig.plugins.entries) &&
-      isRecord(hostConfig.plugins.entries[PLUGIN_ID]) &&
-      isRecord(hostConfig.plugins.entries[PLUGIN_ID].config) &&
-      hostConfig.plugins.entries[PLUGIN_ID].config) ||
+      isRecord(hostConfig.plugins.entries[OPENCLAW_PLUGIN_ID]) &&
+      isRecord(hostConfig.plugins.entries[OPENCLAW_PLUGIN_ID].config) &&
+      hostConfig.plugins.entries[OPENCLAW_PLUGIN_ID].config) ||
     (isRecord(hostConfig.plugins) &&
-      isRecord(hostConfig.plugins[PLUGIN_ID]) &&
-      hostConfig.plugins[PLUGIN_ID]) ||
-    (isRecord(hostConfig[PLUGIN_ID]) && hostConfig[PLUGIN_ID]);
+      isRecord(hostConfig.plugins[OPENCLAW_PLUGIN_ID]) &&
+      hostConfig.plugins[OPENCLAW_PLUGIN_ID]) ||
+    (isRecord(hostConfig[OPENCLAW_PLUGIN_ID]) && hostConfig[OPENCLAW_PLUGIN_ID]);
 
   return normalizeKnowledgeBaseConfig(pluginEntry);
 }

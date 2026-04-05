@@ -33,13 +33,23 @@ export async function kbStatus(config: KnowledgeBasePluginConfig): Promise<Statu
     raw_count: rawItems.length,
     source_note_count: await countMarkdownFiles(config, paths.sources),
     output_count: await countMarkdownFiles(config, paths.outputs),
+    derived_note_counts: {
+      concept: await countMarkdownFiles(config, paths.concepts),
+      entity: await countMarkdownFiles(config, paths.entities),
+      synthesis: await countMarkdownFiles(config, paths.syntheses),
+    },
     changed_raw_count: changedRawCount,
     manifest_exists: Object.keys(manifest.sources).length >= 0,
     paths: {
       raw: paths.raw,
       sources: paths.sources,
       outputs: paths.outputs,
+      concepts: paths.concepts,
+      entities: paths.entities,
+      syntheses: paths.syntheses,
       indexes: paths.indexes,
+      index: paths.index,
+      log: paths.log,
       state: paths.state,
     },
   };

@@ -1,23 +1,84 @@
 {
-  "name": "llm-knowledge-bases-plugin",
-  "version": "0.1.3",
+  "name": "@harrylabs/llm-knowledge-bases",
+  "version": "0.3.0",
   "displayName": "LLM Knowledge Bases",
-  "description": "Inspired by a public workflow shared by Andrej Karpathy (@karpathy). A deterministic OpenClaw plugin for turning raw research into a living Markdown knowledge base over a controlled Obsidian vault.",
+  "description": "Deterministic Markdown wiki runtime for Obsidian vaults, with standalone CLI, MCP server, and OpenClaw compatibility.",
+  "keywords": [
+    "cli",
+    "mcp",
+    "mcp-server",
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini-cli",
+    "knowledge-base",
+    "obsidian",
+    "markdown",
+    "wiki",
+    "local-first",
+    "openclaw"
+  ],
   "license": "MIT",
   "author": "harrylabsj",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/src/cli.d.ts",
+      "import": "./dist/src/cli.js"
+    },
+    "./client-configs": {
+      "types": "./dist/src/client-configs.d.ts",
+      "import": "./dist/src/client-configs.js"
+    },
+    "./config": {
+      "types": "./dist/src/config.d.ts",
+      "import": "./dist/src/config.js"
+    },
+    "./mcp": {
+      "types": "./dist/src/mcp.d.ts",
+      "import": "./dist/src/mcp.js"
+    },
+    "./openclaw": {
+      "types": "./dist/openclaw.d.ts",
+      "import": "./dist/openclaw.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "llm-knowledge-bases": "dist/src/standalone-cli.js",
+    "llm-kb": "dist/src/standalone-cli.js",
+    "llm-knowledge-bases-plugin": "dist/src/mcp-stdio.js",
+    "llm-knowledge-bases-mcp": "dist/src/mcp-stdio.js",
+    "llm-kb-mcp": "dist/src/mcp-stdio.js",
+    "llm-knowledge-bases-configs": "dist/src/print-client-configs.js",
+    "llm-kb-configs": "dist/src/print-client-configs.js"
+  },
   "files": [
-    "src/",
-    "index.ts",
+    "dist/",
     "openclaw.plugin.json",
     "README.md",
-    "tsconfig.json",
+    "LICENSE",
+    "PUBLISHING.md",
     "examples/"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/build.mjs",
+    "pack:dry-run": "bash scripts/pack-dry-run.sh",
+    "print:client-configs": "node dist/src/print-client-configs.js",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run release:check",
+    "release:check": "bash scripts/release-check.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=22"
@@ -35,7 +96,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.ts"
+      "./dist/openclaw.js"
     ],
     "compat": {
       "pluginApi": ">=2026.3.24-beta.2"
@@ -44,7 +105,7 @@
       "openclawVersion": "2026.4.2"
     },
     "install": {
-      "npmSpec": "llm-knowledge-bases-plugin",
+      "npmSpec": "@harrylabs/llm-knowledge-bases",
       "defaultChoice": "npm"
     }
   }

@@ -1,13 +1,23 @@
-import type { KnowledgeBasePluginConfig } from "../types.js";
+import type { KnowledgeBaseNoteType, KnowledgeBasePluginConfig } from "../types.js";
 import { searchKnowledgeBase } from "../core/search.js";
 import { validateRuntimeConfig } from "../core/validate.js";
+
+const ALLOWED_SEARCH_TYPES: readonly KnowledgeBaseNoteType[] = [
+  "source",
+  "output",
+  "concept",
+  "entity",
+  "synthesis",
+  "index",
+  "log",
+];
 
 export async function kbSearch(
   config: KnowledgeBasePluginConfig,
   input: {
     query: string;
     limit?: number;
-    types?: Array<"source" | "output">;
+    types?: KnowledgeBaseNoteType[];
   },
 ) {
   await validateRuntimeConfig(config);
@@ -22,8 +32,10 @@ export async function kbSearch(
     throw new Error("validation_error: limit must be a positive integer");
   }
 
-  if (input.types && input.types.some((type) => type !== "source" && type !== "output")) {
-    throw new Error("validation_error: types must only contain source and output");
+  if (input.types && input.types.some((type) => !ALLOWED_SEARCH_TYPES.includes(type))) {
+    throw new Error(
+      "validation_error: types must only contain source, output, concept, entity, synthesis, index, or log",
+    );
   }
 
   return {

@@ -1,9 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type { KnowledgeBasePluginConfig } from "../types.js";
+import type { DerivedNoteKind, KnowledgeBasePluginConfig, RunLogEntry } from "../types.js";
 import { atomicWriteText } from "./atomic-write.js";
-import { parseOutputNoteMarkdown, parseSourceNoteMarkdown } from "./frontmatter.js";
+import {
+  parseDerivedNoteMarkdown,
+  parseOutputNoteMarkdown,
+  parseSourceNoteMarkdown,
+} from "./frontmatter.js";
+import { extractExcerpt } from "./note-analysis.js";
 import { getVaultPaths, resolveVaultPath } from "./paths.js";
 
 type SourceIndexEntry = {
@@ -11,6 +16,7 @@ type SourceIndexEntry = {
   notePath: string;
   title: string;
   rawPath: string;
+  summary: string;
   updatedAt: string;
 };
 
@@ -20,6 +26,17 @@ type OutputIndexEntry = {
   title: string;
   query: string;
   sourceRefs: string[];
+  summary: string;
+  updatedAt: string;
+};
+
+type DerivedIndexEntry = {
+  id: string;
+  notePath: string;
+  kind: DerivedNoteKind;
+  title: string;
+  sourceRefs: string[];
+  summary: string;
   updatedAt: string;
 };
 
@@ -51,16 +68,33 @@ async function readMarkdownFiles(
   }
 }
 
+async function readRunEntries(config: KnowledgeBasePluginConfig): Promise<RunLogEntry[]> {
+  const runsPath = await resolveVaultPath(config, getVaultPaths(config).runs);
+
+  try {
+    const content = await fs.readFile(runsPath, "utf8");
+    return content
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as RunLogEntry)
+      .sort((a, b) => b.ts.localeCompare(a.ts));
+  } catch {
+    return [];
+  }
+}
+
 async function collectSourceEntries(config: KnowledgeBasePluginConfig): Promise<SourceIndexEntry[]> {
   const sourceFiles = await readMarkdownFiles(config, getVaultPaths(config).sources);
 
   return sourceFiles.map(({ path: notePath, content }) => {
-    const { frontmatter } = parseSourceNoteMarkdown(content);
+    const { frontmatter, body } = parseSourceNoteMarkdown(content);
     return {
       id: frontmatter.id,
       notePath,
       title: frontmatter.title,
       rawPath: frontmatter.raw_path,
+      summary: extractExcerpt(body),
       updatedAt: frontmatter.updated_at,
     };
   });
@@ -70,13 +104,38 @@ async function collectOutputEntries(config: KnowledgeBasePluginConfig): Promise<
   const outputFiles = await readMarkdownFiles(config, getVaultPaths(config).outputs);
 
   return outputFiles.map(({ path: notePath, content }) => {
-    const { frontmatter } = parseOutputNoteMarkdown(content);
+    const { frontmatter, body } = parseOutputNoteMarkdown(content);
     return {
       id: frontmatter.id,
       notePath,
       title: frontmatter.title,
       query: frontmatter.query,
       sourceRefs: frontmatter.source_refs,
+      summary: extractExcerpt(body),
+      updatedAt: frontmatter.updated_at,
+    };
+  });
+}
+
+async function collectDerivedEntries(config: KnowledgeBasePluginConfig): Promise<DerivedIndexEntry[]> {
+  const paths = getVaultPaths(config);
+  const derivedFiles = (
+    await Promise.all([
+      readMarkdownFiles(config, paths.concepts),
+      readMarkdownFiles(config, paths.entities),
+      readMarkdownFiles(config, paths.syntheses),
+    ])
+  ).flat();
+
+  return derivedFiles.map(({ path: notePath, content }) => {
+    const { frontmatter, body } = parseDerivedNoteMarkdown(content);
+    return {
+      id: frontmatter.id,
+      notePath,
+      kind: frontmatter.type,
+      title: frontmatter.title,
+      sourceRefs: frontmatter.source_refs,
+      summary: extractExcerpt(body),
       updatedAt: frontmatter.updated_at,
     };
   });
@@ -98,7 +157,7 @@ function buildSourcesIndexMarkdown(indexDir: string, entries: SourceIndexEntry[]
   for (const entry of entries.sort((a, b) => a.id.localeCompare(b.id))) {
     const relativeLink = path.posix.relative(indexDir, entry.notePath);
     lines.push(
-      `- [${entry.title}](${relativeLink}) (\`${entry.id}\`) - raw: \`${entry.rawPath}\` - updated: ${entry.updatedAt}`,
+      `- [${entry.title}](${relativeLink}) (\`${entry.id}\`) - ${entry.summary || "_No summary yet._"} - raw: \`${entry.rawPath}\` - updated: ${entry.updatedAt}`,
     );
   }
 
@@ -120,33 +179,208 @@ function buildOutputsIndexMarkdown(indexDir: string, entries: OutputIndexEntry[]
 
   for (const entry of entries.sort((a, b) => a.id.localeCompare(b.id))) {
     const relativeLink = path.posix.relative(indexDir, entry.notePath);
-    const sourceRefs = entry.sourceRefs.join(", ");
     lines.push(
-      `- [${entry.title}](${relativeLink}) (\`${entry.id}\`) - query: ${entry.query} - sources: ${sourceRefs} - updated: ${entry.updatedAt}`,
+      `- [${entry.title}](${relativeLink}) (\`${entry.id}\`) - ${entry.summary || "_No summary yet._"} - query: ${entry.query} - sources: ${entry.sourceRefs.join(", ")} - updated: ${entry.updatedAt}`,
     );
   }
 
   return `${lines.join("\n")}\n`;
 }
 
+function buildDerivedIndexMarkdown(
+  indexDir: string,
+  kind: DerivedNoteKind,
+  entries: DerivedIndexEntry[],
+): string {
+  const titleByKind: Record<DerivedNoteKind, string> = {
+    concept: "Concepts Index",
+    entity: "Entities Index",
+    synthesis: "Syntheses Index",
+  };
+  const filtered = entries.filter((entry) => entry.kind === kind);
+  const lines = [
+    `# ${titleByKind[kind]}`,
+    "",
+    "Generated by `kb_rebuild_indexes`.",
+    "",
+  ];
+
+  if (filtered.length === 0) {
+    lines.push(`_No ${kind} notes yet._`);
+    return `${lines.join("\n")}\n`;
+  }
+
+  for (const entry of filtered.sort((a, b) => a.id.localeCompare(b.id))) {
+    const relativeLink = path.posix.relative(indexDir, entry.notePath);
+    lines.push(
+      `- [${entry.title}](${relativeLink}) (\`${entry.id}\`) - ${entry.summary || "_No summary yet._"} - sources: ${entry.sourceRefs.join(", ")} - updated: ${entry.updatedAt}`,
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function buildHomeIndexMarkdown(
+  config: KnowledgeBasePluginConfig,
+  entries: {
+    sources: SourceIndexEntry[];
+    outputs: OutputIndexEntry[];
+    concepts: DerivedIndexEntry[];
+    entities: DerivedIndexEntry[];
+    syntheses: DerivedIndexEntry[];
+  },
+): string {
+  const paths = getVaultPaths(config);
+  const wikiRoot = config.wikiDir;
+  const links = {
+    sources: path.posix.relative(wikiRoot, `${paths.indexes}/sources.md`),
+    outputs: path.posix.relative(wikiRoot, `${paths.indexes}/outputs.md`),
+    concepts: path.posix.relative(wikiRoot, `${paths.indexes}/concepts.md`),
+    entities: path.posix.relative(wikiRoot, `${paths.indexes}/entities.md`),
+    syntheses: path.posix.relative(wikiRoot, `${paths.indexes}/syntheses.md`),
+    log: path.posix.relative(wikiRoot, paths.log),
+  };
+
+  return `# Knowledge Base Index
+
+Generated by \`kb_rebuild_indexes\` as the wiki's master catalog.
+
+## Collections
+
+- [Sources](${links.sources}) - ${entries.sources.length}
+- [Outputs](${links.outputs}) - ${entries.outputs.length}
+- [Concepts](${links.concepts}) - ${entries.concepts.length}
+- [Entities](${links.entities}) - ${entries.entities.length}
+- [Syntheses](${links.syntheses}) - ${entries.syntheses.length}
+
+## Navigation
+
+- [Run Log](${links.log})
+- [Indexes Folder](_indexes/)
+
+## Sources
+
+${renderCatalogSection(wikiRoot, entries.sources)}
+
+## Outputs
+
+${renderCatalogSection(wikiRoot, entries.outputs)}
+
+## Concepts
+
+${renderCatalogSection(wikiRoot, entries.concepts)}
+
+## Entities
+
+${renderCatalogSection(wikiRoot, entries.entities)}
+
+## Syntheses
+
+${renderCatalogSection(wikiRoot, entries.syntheses)}
+`;
+}
+
+function buildLogMarkdown(entries: RunLogEntry[]): string {
+  const lines = [
+    "# Knowledge Base Log",
+    "",
+    "Generated by `kb_rebuild_indexes` from the append-only `.llm-kb/runs.jsonl` activity ledger.",
+    "",
+  ];
+
+  if (entries.length === 0) {
+    lines.push("_No run history yet._");
+    return `${lines.join("\n")}\n`;
+  }
+
+  let currentDay = "";
+  for (const entry of entries.slice(0, 50)) {
+    const day = entry.ts.slice(0, 10);
+    const time = entry.ts.slice(11, 19);
+    if (day !== currentDay) {
+      if (currentDay) {
+        lines.push("");
+      }
+      lines.push(`## ${day}`, "");
+      currentDay = day;
+    }
+    lines.push(`- ${time}Z | \`${entry.action}\` | ${entry.status} | \`${entry.target}\``);
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function renderCatalogSection(
+  wikiRoot: string,
+  entries: Array<{ notePath: string; title: string; id: string; summary: string }>,
+): string {
+  if (entries.length === 0) {
+    return "_None yet._";
+  }
+
+  return entries
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((entry) => {
+      const relativeLink = path.posix.relative(wikiRoot, entry.notePath);
+      return `- [${entry.title}](${relativeLink}) (\`${entry.id}\`): ${entry.summary || "_No summary yet._"}`;
+    })
+    .join("\n");
+}
+
 export async function rebuildIndexes(config: KnowledgeBasePluginConfig): Promise<string[]> {
   const paths = getVaultPaths(config);
-  const sourcesIndexPath = `${paths.indexes}/sources.md`;
-  const outputsIndexPath = `${paths.indexes}/outputs.md`;
+  const written = [
+    `${paths.indexes}/sources.md`,
+    `${paths.indexes}/outputs.md`,
+    `${paths.indexes}/concepts.md`,
+    `${paths.indexes}/entities.md`,
+    `${paths.indexes}/syntheses.md`,
+    paths.index,
+    paths.log,
+  ];
 
-  const [sourceEntries, outputEntries] = await Promise.all([
+  const [sourceEntries, outputEntries, derivedEntries, runEntries] = await Promise.all([
     collectSourceEntries(config),
     collectOutputEntries(config),
+    collectDerivedEntries(config),
+    readRunEntries(config),
   ]);
 
   await atomicWriteText(
-    await resolveVaultPath(config, sourcesIndexPath),
+    await resolveVaultPath(config, `${paths.indexes}/sources.md`),
     buildSourcesIndexMarkdown(paths.indexes, sourceEntries),
   );
   await atomicWriteText(
-    await resolveVaultPath(config, outputsIndexPath),
+    await resolveVaultPath(config, `${paths.indexes}/outputs.md`),
     buildOutputsIndexMarkdown(paths.indexes, outputEntries),
   );
+  await atomicWriteText(
+    await resolveVaultPath(config, `${paths.indexes}/concepts.md`),
+    buildDerivedIndexMarkdown(paths.indexes, "concept", derivedEntries),
+  );
+  await atomicWriteText(
+    await resolveVaultPath(config, `${paths.indexes}/entities.md`),
+    buildDerivedIndexMarkdown(paths.indexes, "entity", derivedEntries),
+  );
+  await atomicWriteText(
+    await resolveVaultPath(config, `${paths.indexes}/syntheses.md`),
+    buildDerivedIndexMarkdown(paths.indexes, "synthesis", derivedEntries),
+  );
+  await atomicWriteText(
+    await resolveVaultPath(config, paths.index),
+    buildHomeIndexMarkdown(config, {
+      sources: sourceEntries,
+      outputs: outputEntries,
+      concepts: derivedEntries.filter((entry) => entry.kind === "concept"),
+      entities: derivedEntries.filter((entry) => entry.kind === "entity"),
+      syntheses: derivedEntries.filter((entry) => entry.kind === "synthesis"),
+    }),
+  );
+  await atomicWriteText(
+    await resolveVaultPath(config, paths.log),
+    buildLogMarkdown(runEntries),
+  );
 
-  return [sourcesIndexPath, outputsIndexPath];
+  return written;
 }

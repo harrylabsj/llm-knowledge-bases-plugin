@@ -6,7 +6,11 @@ import type {
   KnowledgeBasePluginConfig,
   ReadNoteItem,
 } from "../types.js";
-import { parseOutputNoteMarkdown, parseSourceNoteMarkdown } from "./frontmatter.js";
+import {
+  parseDerivedNoteMarkdown,
+  parseOutputNoteMarkdown,
+  parseSourceNoteMarkdown,
+} from "./frontmatter.js";
 import { getVaultPaths, resolveVaultPath, toVaultRelativePath } from "./paths.js";
 
 function isUnderDir(candidate: string, dir: string): boolean {
@@ -38,11 +42,28 @@ export function classifyNotePath(
   if (isUnderDir(normalized, paths.outputs)) {
     return "output";
   }
+  if (isUnderDir(normalized, paths.concepts)) {
+    return "concept";
+  }
+  if (isUnderDir(normalized, paths.entities)) {
+    return "entity";
+  }
+  if (isUnderDir(normalized, paths.syntheses)) {
+    return "synthesis";
+  }
+  if (normalized === paths.log) {
+    return "log";
+  }
+  if (normalized === paths.index) {
+    return "index";
+  }
   if (isUnderDir(normalized, paths.indexes)) {
     return "index";
   }
 
-  throw new Error("invalid_path: path must stay under wiki/sources, wiki/outputs, or wiki/_indexes");
+  throw new Error(
+    "invalid_path: path must stay under wiki/sources, wiki/outputs, wiki/concepts, wiki/entities, wiki/syntheses, wiki/_indexes, wiki/index.md, or wiki/log.md",
+  );
 }
 
 export async function listMarkdownFiles(
@@ -83,6 +104,17 @@ export async function readNote(
 
   if (type === "output") {
     const { frontmatter } = parseOutputNoteMarkdown(content);
+    return {
+      path: notePath,
+      type,
+      id: frontmatter.id,
+      title: frontmatter.title,
+      content,
+    };
+  }
+
+  if (type === "concept" || type === "entity" || type === "synthesis") {
+    const { frontmatter } = parseDerivedNoteMarkdown(content);
     return {
       path: notePath,
       type,

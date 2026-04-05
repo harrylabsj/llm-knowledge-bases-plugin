@@ -1,38 +1,83 @@
-import {
+export {
+  KnowledgeBaseConfigJsonSchema,
   KnowledgeBasePluginConfigJsonSchema,
+  OPENCLAW_PLUGIN_ID,
   PLUGIN_ID,
+  normalizeKnowledgeBaseConfig,
   resolveKnowledgeBaseConfigFromHostConfig,
+  resolveKnowledgeBaseConfigFromOpenClawHostConfig,
 } from "./src/config.js";
-import { registerKnowledgeBaseCli, type CliCommand } from "./src/cli.js";
-
-type OpenClawPluginApi = {
-  registerCli?: (
-    factory: (params: { program: CliCommand; config: unknown }) => void,
-    options?: { commands?: string[] },
-  ) => void;
-};
-
-const plugin = {
-  id: PLUGIN_ID,
-  name: "LLM Knowledge Bases",
-  description:
-    "Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown knowledge base that compounds with every question.",
-  configSchema: KnowledgeBasePluginConfigJsonSchema,
-  register(api: OpenClawPluginApi) {
-    if (!api?.registerCli) {
-      throw new Error(
-        `[${PLUGIN_ID}] registerCli is required because 1.0 currently ships as a CLI-backed surface`,
-      );
-    }
-
-    api.registerCli(
-      ({ program, config }) => {
-        const pluginConfig = resolveKnowledgeBaseConfigFromHostConfig(config);
-        registerKnowledgeBaseCli({ program, pluginConfig });
-      },
-      { commands: ["openclaw-llm-kb"] },
-    );
-  },
-};
-
-export default plugin;
+export {
+  DEFAULT_NPM_SPEC,
+  DEFAULT_SERVER_NAME,
+  DEFAULT_STDIO_BIN,
+  buildMcpStdioLaunchSpec,
+  buildStdioLaunchSpec,
+  renderAllClientConfigs,
+  renderClaudeAddCommand,
+  renderCodexAddCommand,
+  renderCursorConfig,
+  renderGeminiConfig,
+  renderShellCommand,
+  renderTargetConfig,
+} from "./src/client-configs.js";
+export {
+  KB_TOOL_NAMES,
+  parseStandaloneCliArgs,
+  registerKnowledgeBaseCli,
+  runStandaloneKnowledgeBaseCli,
+} from "./src/cli.js";
+export {
+  createKnowledgeBaseMcpServer,
+  listKnowledgeBaseMcpTools,
+} from "./src/mcp.js";
+export { kbLint } from "./src/tools/kb_lint.js";
+export { kbListRaw } from "./src/tools/kb_list_raw.js";
+export { kbMapGaps } from "./src/tools/kb_map_gaps.js";
+export { kbPrepareDerivedNote } from "./src/tools/kb_prepare_derived_note.js";
+export { kbPrepareOutput } from "./src/tools/kb_prepare_output.js";
+export { kbPrepareSource } from "./src/tools/kb_prepare_source.js";
+export { kbPromoteGap } from "./src/tools/kb_promote_gap.js";
+export { kbReadNotes } from "./src/tools/kb_read_notes.js";
+export { kbReadRaw } from "./src/tools/kb_read_raw.js";
+export { kbRebuildIndexes } from "./src/tools/kb_rebuild_indexes.js";
+export { kbSearch } from "./src/tools/kb_search.js";
+export { kbStatus } from "./src/tools/kb_status.js";
+export { kbUpsertDerivedNote } from "./src/tools/kb_upsert_derived_note.js";
+export { kbUpsertOutput } from "./src/tools/kb_upsert_output.js";
+export { kbUpsertSourceNote } from "./src/tools/kb_upsert_source_note.js";
+export type {
+  ClientConfigOptions,
+  StdioLaunchSpec,
+  TargetClient,
+  TransportMode,
+} from "./src/client-configs.js";
+export type {
+  KnowledgeBaseCliCommandName,
+  ParsedStandaloneCliArgs,
+  StandaloneCliIo,
+} from "./src/cli.js";
+export type {
+  JsonRpcId,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from "./src/mcp.js";
+export type {
+  DerivedNoteKind,
+  GapCandidate,
+  GapCandidateCategory,
+  GapPromotionResult,
+  GapReport,
+  KnowledgeBaseConfig,
+  KnowledgeBaseNoteType,
+  KnowledgeBasePluginConfig,
+  LintIssue,
+  ManifestFile,
+  RawItemStatus,
+  RawListItem,
+  ReadNoteItem,
+  RunLogEntry,
+  SearchResultItem,
+  SourceManifestEntry,
+  StatusSummary,
+} from "./src/types.js";

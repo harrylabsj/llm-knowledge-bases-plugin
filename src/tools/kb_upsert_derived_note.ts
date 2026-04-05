@@ -1,13 +1,29 @@
 import fs from "node:fs/promises";
 
-import type { KnowledgeBasePluginConfig, ManifestFile } from "../types.js";
+import type { DerivedNoteKind, KnowledgeBasePluginConfig, ManifestFile } from "../types.js";
 import { atomicWriteText } from "../core/atomic-write.js";
-import { OUTPUT_REQUIRED_HEADINGS, parseOutputNoteMarkdown } from "../core/frontmatter.js";
+import {
+  DERIVED_NOTE_REQUIRED_HEADINGS,
+  parseDerivedNoteMarkdown,
+} from "../core/frontmatter.js";
 import { loadManifest } from "../core/manifest.js";
-import { buildOutputId, buildOutputPathFromId, parseOutputId } from "../core/naming.js";
+import { buildDerivedNoteId, buildDerivedNotePath } from "../core/naming.js";
 import { getVaultPaths, resolveVaultPath } from "../core/paths.js";
 import { appendRunLog } from "../core/runs.js";
 import { requireHeadings, validateRuntimeConfig } from "../core/validate.js";
+
+function resolveDerivedDir(config: KnowledgeBasePluginConfig, kind: DerivedNoteKind): string {
+  const paths = getVaultPaths(config);
+
+  switch (kind) {
+    case "concept":
+      return paths.concepts;
+    case "entity":
+      return paths.entities;
+    case "synthesis":
+      return paths.syntheses;
+  }
+}
 
 async function sourceRefExists(
   config: KnowledgeBasePluginConfig,
@@ -22,7 +38,7 @@ async function sourceRefExists(
   }
 }
 
-export async function kbUpsertOutput(
+export async function kbUpsertDerivedNote(
   config: KnowledgeBasePluginConfig,
   input: { markdown: string },
 ) {
@@ -32,17 +48,12 @@ export async function kbUpsertOutput(
     throw new Error("validation_error: markdown is required");
   }
 
-  const { frontmatter, body } = parseOutputNoteMarkdown(input.markdown);
-  requireHeadings(body, [...OUTPUT_REQUIRED_HEADINGS]);
+  const { frontmatter, body } = parseDerivedNoteMarkdown(input.markdown);
+  requireHeadings(body, [...DERIVED_NOTE_REQUIRED_HEADINGS[frontmatter.type]]);
 
-  const parsedOutputId = parseOutputId(frontmatter.id);
-  if (!parsedOutputId) {
-    throw new Error("validation_error: output id must match out-YYYY-MM-DD-<slug>");
-  }
-
-  const expectedOutputId = buildOutputId(frontmatter.title, parsedOutputId.dateStamp);
-  if (frontmatter.id !== expectedOutputId) {
-    throw new Error(`validation_error: output id must match canonical title slug "${expectedOutputId}"`);
+  const expectedNoteId = buildDerivedNoteId(frontmatter.type, frontmatter.title);
+  if (frontmatter.id !== expectedNoteId) {
+    throw new Error(`validation_error: derived note id must match canonical title slug "${expectedNoteId}"`);
   }
 
   const manifest = await loadManifest(config);
@@ -52,22 +63,23 @@ export async function kbUpsertOutput(
     }
   }
 
-  const outputPath = buildOutputPathFromId(getVaultPaths(config).outputs, frontmatter.id);
+  const notePath = buildDerivedNotePath(resolveDerivedDir(config, frontmatter.type), frontmatter.id);
   await atomicWriteText(
-    await resolveVaultPath(config, outputPath),
+    await resolveVaultPath(config, notePath),
     input.markdown.endsWith("\n") ? input.markdown : `${input.markdown}\n`,
   );
 
   await appendRunLog(config, {
     ts: new Date().toISOString(),
-    action: "kb_upsert_output",
-    target: outputPath,
+    action: "kb_upsert_derived_note",
+    target: notePath,
     status: "ok",
   });
 
   return {
     ok: true,
-    output_id: frontmatter.id,
-    output_path: outputPath,
+    note_id: frontmatter.id,
+    note_path: notePath,
+    kind: frontmatter.type,
   };
 }

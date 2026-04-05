@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "index.ts",
+    "openclaw.ts",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "test/**/*.ts",
+    "dist/**"
+  ]
+}

@@ -1,3 +1,5 @@
+import type { DerivedNoteKind } from "../types.js";
+
 import { slugify } from "./slug.js";
 
 export function currentOutputDateStamp(now: Date = new Date()): string {
@@ -39,4 +41,12 @@ export function parseOutputId(
     dateStamp: match[1],
     slug: match[2],
   };
+}
+
+export function buildDerivedNoteId(kind: DerivedNoteKind, title: string): string {
+  return `${kind}-${slugify(title)}`;
+}
+
+export function buildDerivedNotePath(dir: string, noteId: string): string {
+  return `${dir}/${noteId}.md`;
 }

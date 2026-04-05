@@ -1,15 +1,25 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import type { KnowledgeBasePluginConfig, SearchResultItem } from "../types.js";
-import { parseOutputNoteMarkdown, parseSourceNoteMarkdown } from "./frontmatter.js";
+import type {
+  KnowledgeBaseNoteType,
+  KnowledgeBasePluginConfig,
+  SearchResultItem,
+} from "../types.js";
+import {
+  parseDerivedNoteMarkdown,
+  parseOutputNoteMarkdown,
+  parseSourceNoteMarkdown,
+} from "./frontmatter.js";
 import { listMarkdownFiles } from "./notes.js";
 import { getVaultPaths, resolveVaultPath } from "./paths.js";
 
 type SearchableDocument = {
   path: string;
-  type: "source" | "output";
+  type: KnowledgeBaseNoteType;
   id: string;
   title: string;
+  aliases: string[];
   body: string;
 };
 
@@ -38,6 +48,18 @@ function stripMarkdown(input: string): string {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function inferIndexLikeTitle(notePath: string, content: string): string {
+  const headingMatch = /^#\s+(.+?)\s*$/m.exec(content);
+  if (headingMatch?.[1]) {
+    return headingMatch[1];
+  }
+
+  return path
+    .posix.parse(notePath)
+    .name.replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function buildSnippet(body: string, tokens: string[]): string {
@@ -72,6 +94,7 @@ export function scoreTextQuery(input: {
   title: string;
   body: string;
   id?: string;
+  aliases?: string[];
 }): ScoredQuery {
   const query = input.query.trim().toLowerCase();
   const tokens = tokenize(query);
@@ -83,6 +106,7 @@ export function scoreTextQuery(input: {
   const title = input.title.toLowerCase();
   const body = input.body.toLowerCase();
   const id = input.id?.toLowerCase() ?? "";
+  const aliases = (input.aliases ?? []).join(" ").toLowerCase();
 
   let score = 0;
   let matchedTokens = 0;
@@ -90,13 +114,15 @@ export function scoreTextQuery(input: {
   for (const token of tokens) {
     const titleHits = countOccurrences(title, token);
     const idHits = countOccurrences(id, token);
+    const aliasHits = countOccurrences(aliases, token);
     const bodyHits = countOccurrences(body, token);
 
-    if (titleHits + idHits + bodyHits > 0) {
+    if (titleHits + idHits + aliasHits + bodyHits > 0) {
       matchedTokens += 1;
     }
 
     score += titleHits * 5;
+    score += aliasHits * 4;
     score += idHits * 3;
     score += Math.min(bodyHits, 8);
   }
@@ -107,6 +133,9 @@ export function scoreTextQuery(input: {
 
   if (title.includes(query)) {
     score += 4;
+  }
+  if (aliases.includes(query)) {
+    score += 3;
   }
   if (body.includes(query)) {
     score += 2;
@@ -121,17 +150,58 @@ export function scoreTextQuery(input: {
   };
 }
 
-async function loadSearchableDocuments(
+async function existingPath(
   config: KnowledgeBasePluginConfig,
-  types: Array<"source" | "output">,
-): Promise<SearchableDocument[]> {
+  relativePath: string,
+): Promise<string[]> {
+  try {
+    await fs.stat(await resolveVaultPath(config, relativePath));
+    return [relativePath];
+  } catch {
+    return [];
+  }
+}
+
+async function resolveNotePaths(
+  config: KnowledgeBasePluginConfig,
+  types: KnowledgeBaseNoteType[],
+): Promise<string[]> {
   const paths = getVaultPaths(config);
   const notePaths = (
     await Promise.all(
-      types.map((type) => listMarkdownFiles(config, type === "source" ? paths.sources : paths.outputs)),
+      types.map(async (type) => {
+        switch (type) {
+          case "source":
+            return listMarkdownFiles(config, paths.sources);
+          case "output":
+            return listMarkdownFiles(config, paths.outputs);
+          case "concept":
+            return listMarkdownFiles(config, paths.concepts);
+          case "entity":
+            return listMarkdownFiles(config, paths.entities);
+          case "synthesis":
+            return listMarkdownFiles(config, paths.syntheses);
+          case "index":
+            return [
+              ...(await listMarkdownFiles(config, paths.indexes)),
+              ...(await existingPath(config, paths.index)),
+            ];
+          case "log":
+            return existingPath(config, paths.log);
+        }
+      }),
     )
   ).flat();
 
+  return [...new Set(notePaths)].sort();
+}
+
+async function loadSearchableDocuments(
+  config: KnowledgeBasePluginConfig,
+  types: KnowledgeBaseNoteType[],
+): Promise<SearchableDocument[]> {
+  const paths = getVaultPaths(config);
+  const notePaths = await resolveNotePaths(config, types);
   const documents: SearchableDocument[] = [];
 
   for (const notePath of notePaths) {
@@ -145,18 +215,49 @@ async function loadSearchableDocuments(
           type: "source",
           id: frontmatter.id,
           title: frontmatter.title,
+          aliases: [],
           body,
         });
         continue;
       }
 
-      const { frontmatter, body } = parseOutputNoteMarkdown(content);
+      if (notePath.startsWith(`${paths.outputs}/`)) {
+        const { frontmatter, body } = parseOutputNoteMarkdown(content);
+        documents.push({
+          path: notePath,
+          type: "output",
+          id: frontmatter.id,
+          title: frontmatter.title,
+          aliases: [],
+          body,
+        });
+        continue;
+      }
+
+      if (
+        notePath.startsWith(`${paths.concepts}/`) ||
+        notePath.startsWith(`${paths.entities}/`) ||
+        notePath.startsWith(`${paths.syntheses}/`)
+      ) {
+        const { frontmatter, body } = parseDerivedNoteMarkdown(content);
+        documents.push({
+          path: notePath,
+          type: frontmatter.type,
+          id: frontmatter.id,
+          title: frontmatter.title,
+          aliases: frontmatter.aliases,
+          body,
+        });
+        continue;
+      }
+
       documents.push({
         path: notePath,
-        type: "output",
-        id: frontmatter.id,
-        title: frontmatter.title,
-        body,
+        type: notePath === paths.log ? "log" : "index",
+        id: notePath,
+        title: inferIndexLikeTitle(notePath, content),
+        aliases: [],
+        body: content,
       });
     } catch {
       // Invalid notes are skipped here and surfaced by kb_lint instead.
@@ -171,11 +272,13 @@ export async function searchKnowledgeBase(
   input: {
     query: string;
     limit?: number;
-    types?: Array<"source" | "output">;
+    types?: KnowledgeBaseNoteType[];
   },
 ): Promise<SearchResultItem[]> {
-  const types: Array<"source" | "output"> =
-    input.types && input.types.length > 0 ? input.types : ["source", "output"];
+  const types: KnowledgeBaseNoteType[] =
+    input.types && input.types.length > 0
+      ? input.types
+      : ["source", "output", "concept", "entity", "synthesis", "index"];
   const documents = await loadSearchableDocuments(config, types);
 
   return documents
@@ -185,6 +288,7 @@ export async function searchKnowledgeBase(
         title: document.title,
         body: document.body,
         id: document.id,
+        aliases: document.aliases,
       });
 
       return {

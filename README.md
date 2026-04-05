@@ -1,123 +1,118 @@
 # LLM Knowledge Bases
 
-Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown knowledge base that compounds with every question.
+Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown wiki that compounds with every question.
 
-This plugin is the deterministic OpenClaw runtime behind that workflow. It keeps vault writes, note structure, and index rebuilding auditable while still giving you a practical local-first knowledge base loop.
+`@harrylabs/llm-knowledge-bases` is the deterministic runtime behind that workflow. It ships as:
 
-If you want the workflow-first entry point, start with the companion [LLM Knowledge Bases skill](https://github.com/harrylabsj/openclaw-skill-llm-knowledge-bases). Use this plugin when you want the underlying vault runtime as a standalone installable package.
+- a standalone CLI for directly running the `kb_*` workflow
+- a stdio MCP server for Claude Code, Codex, Cursor, Gemini CLI, and other MCP-capable agents
+- a config generator for wiring that MCP server into different clients
+- an OpenClaw-compatible host entry for teams that also use OpenClaw
 
-## Scope
+If you want the workflow-first entry point, start with the companion skill.
+Use this package when you want the underlying runtime as an installable CLI/MCP toolchain.
 
-This repository currently implements the full `1.0` plugin surface described in the design doc:
+## What It Implements
 
+This package now implements the core wiki-maintenance runtime surface:
+
+- a raw/wiki/schema-style operating model, with runtime-owned structure and agent-owned synthesis
 - configurable `vaultRoot`
 - controlled path handling and vault boundary checks
-- manifest and runs state files
-- raw file discovery
-- raw file reading
-- canonical source-note preparation
-- source note upsert and manifest updates
-- output note preparation and upsert
-- sources/outputs index rebuilding
-- lightweight text search
-- controlled note reads
-- deterministic lint
-- CLI-backed surface for the first tool set
+- manifest and run-log state files
+- raw file discovery and source-note compilation support
+- archived `output` notes
+- first-class `concept`, `entity`, and `synthesis` note support
+- deterministic gap mapping for missing concept, entity, and synthesis pages, with ready-to-fill Markdown drafts, suggested openings, and evidence summaries
+- direct gap promotion so a reported candidate can be landed as a real derived note through the same shared draft logic
+- generated `wiki/index.md` as a page-level catalog with one-line summaries, plus `wiki/log.md` and collection indexes
+- lightweight full-wiki text search
+- deterministic lint for source, output, and derived notes, including first-pass wiki-health warnings for isolated pages, missing cross-links, stale source coverage, unresolved research gaps, unsupported claims, contradiction candidates, draft placeholders, and medium/high-value missing pages
+- CLI and MCP wrappers around the same `kb_*` tool contract
 
-This repository does not implement:
+This package still does not implement:
 
 - embeddings or vector search
 - database-backed indexing
 - rename tracking
-- PDF or image ingestion
-- cron / heartbeat automation
-- plugin-internal autonomous agent loops
+- PDF or image-native parsing
+- autonomous background agents inside the package
 
-## Why CLI-backed first
+## Default Vault Shape
 
-The design allows a CLI fallback when the current OpenClaw plugin SDK does not yet expose the exact native tool registration surface we want.
-
-That means the plugin still owns all vault I/O, but the first implementation path is:
-
-- `openclaw-llm-kb status`
-- `openclaw-llm-kb list-raw`
-- `openclaw-llm-kb read-raw`
-- `openclaw-llm-kb prepare-source`
-- `openclaw-llm-kb upsert-source-note`
-- `openclaw-llm-kb prepare-output`
-- `openclaw-llm-kb upsert-output`
-- `openclaw-llm-kb rebuild-indexes`
-- `openclaw-llm-kb search`
-- `openclaw-llm-kb read-notes`
-- `openclaw-llm-kb lint`
-
-The skill can call this surface while the plugin internals stay deterministic and auditable.
-
-## Configuration
-
-The plugin requires a vault root:
-
-```json
-{
-  "vaultRoot": "/absolute/path/to/your/obsidian-vault",
-  "rawDir": "raw",
-  "wikiDir": "wiki",
-  "stateDir": ".llm-kb"
-}
+```text
+<vault>/
+  raw/
+  wiki/
+    sources/
+    outputs/
+    concepts/
+    entities/
+    syntheses/
+    _indexes/
+    index.md
+    log.md
+  .llm-kb/
 ```
 
-`vaultRoot` is the only source of truth for vault location.
+## CLI Commands
 
-## Example commands
-
-The CLI examples below assume the plugin is installed and configured inside OpenClaw:
+The standalone CLI exposes the runtime surface directly:
 
 ```bash
-openclaw openclaw-llm-kb status
-openclaw openclaw-llm-kb list-raw --changed-only
-openclaw openclaw-llm-kb read-raw --raw-path raw/inbox/example-note.md
-openclaw openclaw-llm-kb prepare-source --raw-path raw/inbox/example-note.md
-openclaw openclaw-llm-kb upsert-source-note --raw-path raw/inbox/example-note.md --markdown '<full markdown>'
-openclaw openclaw-llm-kb prepare-output --title 'Example Query' --query 'What are the main points?'
-openclaw openclaw-llm-kb upsert-output --markdown '<full markdown>'
-openclaw openclaw-llm-kb rebuild-indexes
-openclaw openclaw-llm-kb search --query 'main points example' --types source,output
-openclaw openclaw-llm-kb read-notes --paths wiki/sources/src-example-note.md,wiki/_indexes/sources.md
-openclaw openclaw-llm-kb lint
+llm-knowledge-bases kb_status --vault-root /vault
+llm-knowledge-bases kb_list_raw --vault-root /vault --changed-only
+llm-knowledge-bases kb_prepare_source --vault-root /vault --raw-path raw/inbox/example-note.md
+llm-knowledge-bases kb_upsert_source_note --vault-root /vault --raw-path raw/inbox/example-note.md --markdown '<full markdown>'
+llm-knowledge-bases kb_prepare_output --vault-root /vault --title 'Example Query' --query 'What are the tradeoffs?'
+llm-knowledge-bases kb_upsert_output --vault-root /vault --markdown '<full markdown>'
+llm-knowledge-bases kb_prepare_derived_note --vault-root /vault --kind concept --title 'Agent Memory'
+llm-knowledge-bases kb_upsert_derived_note --vault-root /vault --markdown '<full markdown>'
+llm-knowledge-bases kb_map_gaps --vault-root /vault --limit 10
+llm-knowledge-bases kb_promote_gap --vault-root /vault --note-id synthesis-retrieval-vs-memory
+llm-knowledge-bases kb_rebuild_indexes --vault-root /vault
+llm-knowledge-bases kb_search --vault-root /vault --query 'agent memory' --types source,concept,synthesis
+llm-knowledge-bases kb_read_notes --vault-root /vault --paths wiki/index.md,wiki/concepts/concept-agent-memory.md
+llm-knowledge-bases kb_lint --vault-root /vault
 ```
 
-## Local development
+## MCP Tools
 
-Install dependencies:
+The MCP server exposes:
 
-```bash
-npm install
-```
+- `kb_status`
+- `kb_list_raw`
+- `kb_read_raw`
+- `kb_prepare_source`
+- `kb_upsert_source_note`
+- `kb_prepare_output`
+- `kb_upsert_output`
+- `kb_prepare_derived_note`
+- `kb_upsert_derived_note`
+- `kb_map_gaps`
+- `kb_promote_gap`
+- `kb_rebuild_indexes`
+- `kb_search`
+- `kb_read_notes`
+- `kb_lint`
 
-Run checks:
+## Runtime Philosophy
 
-```bash
-npm run typecheck
-npm test
-```
+The runtime owns:
 
-## Manual verification
+- canonical paths
+- canonical IDs
+- validation
+- deterministic writes
+- generated wiki navigation
 
-1. Create or copy a test vault from `examples/vault-template/`.
-2. Configure `vaultRoot` to that absolute path.
-3. Put a markdown file under `raw/`.
-4. Run `openclaw openclaw-llm-kb status`.
-5. Run `openclaw openclaw-llm-kb list-raw --changed-only`.
-6. Run `openclaw openclaw-llm-kb read-raw --raw-path <path>`.
-7. Run `openclaw openclaw-llm-kb prepare-source --raw-path <path>`.
-8. Generate a valid source note and write it with `openclaw openclaw-llm-kb upsert-source-note`.
-9. Run `openclaw openclaw-llm-kb rebuild-indexes`.
-10. Verify `openclaw openclaw-llm-kb search --query '<keywords>'` returns the new source note.
-11. Ask a question, prepare an output note with `prepare-output`, then write it with `upsert-output`.
-12. Use `openclaw openclaw-llm-kb read-notes --paths <source>,<output>,wiki/_indexes/sources.md` to verify controlled reads.
-13. Run `openclaw openclaw-llm-kb lint` and confirm the result is clean.
-14. Delete or rename the source note temporarily, run `lint` again, and confirm it reports the structure problem.
+The agent owns:
 
-## Vault template
+- summarization
+- synthesis
+- deciding whether a result belongs in `output`, `concept`, `entity`, or `synthesis`
+- improving the wiki over time instead of leaving value trapped in chat
 
-See [examples/vault-template/README.md](examples/vault-template/README.md).
+`kb_map_gaps` is the bridge between those layers: it reports prioritized missing-page candidates and emits valid draft Markdown, suggested openings, and evidence summaries that can be refined and sent to `kb_upsert_derived_note`.
+`kb_promote_gap` closes that loop by taking one current candidate and landing its shared draft as a real derived note without re-implementing the gap heuristics.
+`kb_lint` stays deterministic, but now surfaces a small first layer of wiki-health warnings instead of only schema/path failures, including current high-value missing pages from the same gap-candidate logic used by `kb_map_gaps`, stale source coverage, unresolved research questions, unsupported claims, and contradiction candidates.
