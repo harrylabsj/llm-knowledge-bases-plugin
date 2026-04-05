@@ -45,7 +45,12 @@ describe("knowledge base MCP server", () => {
         "kb_status",
         "kb_list_raw",
         "kb_read_raw",
+        "kb_get_raw_asset",
         "kb_prepare_source",
+        "kb_prepare_source_bundle",
+        "kb_prepare_representation",
+        "kb_upsert_representation",
+        "kb_read_representations",
         "kb_upsert_source_note",
         "kb_prepare_output",
         "kb_prepare_derived_note",
@@ -127,6 +132,58 @@ describe("knowledge base MCP server", () => {
         structuredContent: expect.objectContaining({
           vault_root: config.vaultRoot,
           raw_count: 1,
+        }),
+      },
+    });
+
+    const prepareRepresentationResult = await server.handleRequest({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "kb_prepare_representation",
+        arguments: {
+          raw_path: "raw/inbox/example-note.md",
+          kind: "native_text",
+        },
+      },
+    });
+
+    expect(prepareRepresentationResult).toMatchObject({
+      jsonrpc: "2.0",
+      id: 5,
+      result: {
+        isError: false,
+        structuredContent: expect.objectContaining({
+          doc_id: "src-example-note",
+          raw_path: "raw/inbox/example-note.md",
+          kind: "native_text",
+          representation_path: ".llm-kb/representations/src-example-note/native-text.md",
+        }),
+      },
+    });
+
+    const sourceBundleResult = await server.handleRequest({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "kb_prepare_source_bundle",
+        arguments: {
+          raw_path: "raw/inbox/example-note.md",
+        },
+      },
+    });
+
+    expect(sourceBundleResult).toMatchObject({
+      jsonrpc: "2.0",
+      id: 6,
+      result: {
+        isError: false,
+        structuredContent: expect.objectContaining({
+          doc_id: "src-example-note",
+          source_note_path: "wiki/sources/src-example-note.md",
+          compile_readiness: "ready",
         }),
       },
     });

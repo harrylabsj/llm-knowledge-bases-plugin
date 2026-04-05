@@ -1,6 +1,6 @@
 # LLM Knowledge Bases
 
-Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw research to a living Markdown wiki that compounds with every question.
+Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw text, PDFs, images, and structured data to a living Markdown wiki that compounds with every question.
 
 `@harrylabs/llm-knowledge-bases` is the deterministic runtime behind that workflow. It ships as:
 
@@ -12,31 +12,37 @@ Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw re
 If you want the workflow-first entry point, start with the companion skill.
 Use this package when you want the underlying runtime as an installable CLI/MCP toolchain.
 
-## What It Implements
+## What 0.4.0 Implements
 
-This package now implements the core wiki-maintenance runtime surface:
+This release makes the runtime representation-first and explicitly multimodal:
 
-- a raw/wiki/schema-style operating model, with runtime-owned structure and agent-owned synthesis
-- configurable `vaultRoot`
-- controlled path handling and vault boundary checks
-- manifest and run-log state files
-- raw file discovery and source-note compilation support
-- archived `output` notes
-- first-class `concept`, `entity`, and `synthesis` note support
-- deterministic gap mapping for missing concept, entity, and synthesis pages, with ready-to-fill Markdown drafts, suggested openings, and evidence summaries
-- direct gap promotion so a reported candidate can be landed as a real derived note through the same shared draft logic
-- generated `wiki/index.md` as a page-level catalog with one-line summaries, plus `wiki/log.md` and collection indexes
-- lightweight full-wiki text search
-- deterministic lint for source, output, and derived notes, including first-pass wiki-health warnings for isolated pages, missing cross-links, stale source coverage, unresolved research gaps, unsupported claims, contradiction candidates, draft placeholders, and medium/high-value missing pages
-- CLI and MCP wrappers around the same `kb_*` tool contract
+- a raw/wiki/schema operating model with runtime-owned structure and agent-owned synthesis
+- supported raw kinds for text (`.md`, `.txt`), PDFs, images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.svg`), and structured data (`.csv`, `.tsv`, `.json`, `.html`)
+- manifest schema version `2`, including `raw_kind`, `mime_type`, `size_bytes`, `asset_refs`, and stored `representations`
+- safe raw-asset inspection through `kb_get_raw_asset`, including deterministic metadata plus a safe absolute path for local viewers
+- full compile context through `kb_prepare_source_bundle`, including asset refs, stored representations, and `compile_readiness`
+- runtime-managed representation storage under `.llm-kb/representations/` through `kb_prepare_representation`, `kb_upsert_representation`, and `kb_read_representations`
+- compile-readiness tracking with `ready`, `partial`, and `needs_representation`
+- source note validation that keeps `raw_kind`, `mime_type`, and `asset_paths` aligned with the actual reviewed assets
+- archived `output` notes plus first-class `concept`, `entity`, and `synthesis` note support
+- deterministic gap mapping and promotion through `kb_map_gaps` and `kb_promote_gap`
+- generated `wiki/index.md`, `wiki/log.md`, and collection indexes, now with raw-kind labels on source pages
+- deterministic lint for schema and wiki health, including warnings for missing representation trails, stale representations, inconsistent `asset_paths`, isolated pages, stale source coverage, unsupported claims, contradiction candidates, and missing high-value pages
+- CLI and MCP wrappers around the same runtime contract
 
-This package still does not implement:
+## Multimodal Ingest Model
 
-- embeddings or vector search
-- database-backed indexing
-- rename tracking
-- PDF or image-native parsing
-- autonomous background agents inside the package
+The runtime now supports two ingest paths:
+
+1. Text and structured data can still compile directly from `raw/` with `kb_prepare_source` and `kb_read_raw`.
+2. PDFs and images use a representation-first path:
+   - inspect the asset with `kb_get_raw_asset`
+   - inspect compile readiness with `kb_prepare_source_bundle`
+   - store intermediate OCR, vision, page notes, metadata, or profiles under `.llm-kb/representations/`
+   - compile the final source note only after the representation trail is present
+
+The runtime intentionally does not perform OCR or vision itself.
+Instead, it gives agents a canonical place to store those intermediate artifacts and then validates that the final wiki pages stay grounded in them.
 
 ## Default Vault Shape
 
@@ -53,6 +59,9 @@ This package still does not implement:
     index.md
     log.md
   .llm-kb/
+    manifest.json
+    runs.jsonl
+    representations/
 ```
 
 ## CLI Commands
@@ -62,8 +71,14 @@ The standalone CLI exposes the runtime surface directly:
 ```bash
 llm-knowledge-bases kb_status --vault-root /vault
 llm-knowledge-bases kb_list_raw --vault-root /vault --changed-only
-llm-knowledge-bases kb_prepare_source --vault-root /vault --raw-path raw/inbox/example-note.md
-llm-knowledge-bases kb_upsert_source_note --vault-root /vault --raw-path raw/inbox/example-note.md --markdown '<full markdown>'
+llm-knowledge-bases kb_read_raw --vault-root /vault --raw-path raw/notes/example.md
+llm-knowledge-bases kb_get_raw_asset --vault-root /vault --raw-path raw/papers/report.pdf
+llm-knowledge-bases kb_prepare_source --vault-root /vault --raw-path raw/notes/example.md
+llm-knowledge-bases kb_prepare_source_bundle --vault-root /vault --raw-path raw/papers/report.pdf
+llm-knowledge-bases kb_prepare_representation --vault-root /vault --raw-path raw/papers/report.pdf --kind ocr_text
+llm-knowledge-bases kb_upsert_representation --vault-root /vault --raw-path raw/papers/report.pdf --kind ocr_text --content '<markdown>'
+llm-knowledge-bases kb_read_representations --vault-root /vault --raw-path raw/papers/report.pdf --kinds metadata,ocr_text
+llm-knowledge-bases kb_upsert_source_note --vault-root /vault --raw-path raw/papers/report.pdf --markdown '<full markdown>'
 llm-knowledge-bases kb_prepare_output --vault-root /vault --title 'Example Query' --query 'What are the tradeoffs?'
 llm-knowledge-bases kb_upsert_output --vault-root /vault --markdown '<full markdown>'
 llm-knowledge-bases kb_prepare_derived_note --vault-root /vault --kind concept --title 'Agent Memory'
@@ -83,7 +98,12 @@ The MCP server exposes:
 - `kb_status`
 - `kb_list_raw`
 - `kb_read_raw`
+- `kb_get_raw_asset`
 - `kb_prepare_source`
+- `kb_prepare_source_bundle`
+- `kb_prepare_representation`
+- `kb_upsert_representation`
+- `kb_read_representations`
 - `kb_upsert_source_note`
 - `kb_prepare_output`
 - `kb_upsert_output`
@@ -104,15 +124,27 @@ The runtime owns:
 - canonical IDs
 - validation
 - deterministic writes
+- manifest-backed representation tracking
 - generated wiki navigation
 
 The agent owns:
 
 - summarization
+- OCR, vision, or profiling work performed outside the runtime
 - synthesis
 - deciding whether a result belongs in `output`, `concept`, `entity`, or `synthesis`
 - improving the wiki over time instead of leaving value trapped in chat
 
-`kb_map_gaps` is the bridge between those layers: it reports prioritized missing-page candidates and emits valid draft Markdown, suggested openings, and evidence summaries that can be refined and sent to `kb_upsert_derived_note`.
-`kb_promote_gap` closes that loop by taking one current candidate and landing its shared draft as a real derived note without re-implementing the gap heuristics.
-`kb_lint` stays deterministic, but now surfaces a small first layer of wiki-health warnings instead of only schema/path failures, including current high-value missing pages from the same gap-candidate logic used by `kb_map_gaps`, stale source coverage, unresolved research questions, unsupported claims, and contradiction candidates.
+`kb_prepare_source_bundle` is the bridge between those layers for non-text assets: it returns the exact raw metadata, reviewed asset refs, stored representations, and readiness state the agent needs before compiling a source note.
+`kb_map_gaps` and `kb_promote_gap` still cover durable knowledge growth on top of that ingest layer.
+`kb_lint` stays deterministic, but now also checks whether multimodal source notes have a believable review trail before the wiki starts depending on them.
+
+## Still Out of Scope
+
+This package still does not implement:
+
+- embeddings or vector search
+- database-backed indexing
+- rename tracking
+- built-in OCR, vision, or PDF parsing inside the runtime itself
+- autonomous background agents inside the package

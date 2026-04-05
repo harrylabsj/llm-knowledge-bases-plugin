@@ -1,7 +1,7 @@
 import matter from "gray-matter";
 import { z } from "zod";
 
-import type { DerivedNoteKind } from "../types.js";
+import type { DerivedNoteKind, RawKind } from "../types.js";
 
 export const SOURCE_REQUIRED_HEADINGS = [
   "Summary",
@@ -50,6 +50,7 @@ const isoDateTimeSchema = z.preprocess(
 );
 
 const derivedNoteKindSchema = z.enum(["concept", "entity", "synthesis"]);
+const rawKindSchema = z.enum(["text", "pdf", "image", "data"] satisfies [RawKind, ...RawKind[]]);
 
 export const sourceNoteFrontmatterSchema = z
   .object({
@@ -58,7 +59,10 @@ export const sourceNoteFrontmatterSchema = z
     title: z.string().trim().min(1, "title is required"),
     raw_path: z.string().trim().min(1, "raw_path is required"),
     raw_hash: sha256Schema,
-    source_kind: z.literal("raw_markdown"),
+    raw_kind: rawKindSchema.optional(),
+    mime_type: z.string().trim().min(1).optional(),
+    asset_paths: z.array(z.string().trim().min(1)).optional().default([]),
+    source_kind: z.string().trim().min(1, "source_kind is required"),
     tags: z.array(z.string()).optional().default([]),
     created_at: isoDateTimeSchema,
     updated_at: isoDateTimeSchema,

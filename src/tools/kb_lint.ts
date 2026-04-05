@@ -6,6 +6,7 @@ import type {
   KnowledgeBasePluginConfig,
   LintIssue,
   ManifestFile,
+  RawKind,
 } from "../types.js";
 import type {
   DerivedNoteFrontmatter,
@@ -26,6 +27,7 @@ import { extractSection, extractWikiLinks, stripMarkdown } from "../core/note-an
 import { buildDerivedNotePath, buildOutputPathFromId } from "../core/naming.js";
 import { listMarkdownFiles } from "../core/notes.js";
 import { getVaultPaths, resolveVaultPath } from "../core/paths.js";
+import { getSupportedRawFileInfo } from "../core/raw-files.js";
 import { listRawFiles } from "../core/scan.js";
 import { slugify } from "../core/slug.js";
 import { requireHeadings, validateRuntimeConfig } from "../core/validate.js";
@@ -602,6 +604,125 @@ function lintUnsupportedClaims(notes: ValidNoteRecord[], issues: LintIssue[]): v
   }
 }
 
+function getSourceFrontmatter(note: ValidNoteRecord): SourceNoteFrontmatter {
+  if (note.type !== "source") {
+    throw new Error("internal_error: expected a source note");
+  }
+  return note.frontmatter as SourceNoteFrontmatter;
+}
+
+function inferSourceRawKind(
+  note: ValidNoteRecord,
+  manifest: ManifestFile,
+): RawKind {
+  const frontmatter = getSourceFrontmatter(note);
+  const manifestEntry = manifest.sources[frontmatter.raw_path];
+  if (manifestEntry) {
+    return manifestEntry.raw_kind;
+  }
+
+  if (frontmatter.raw_kind) {
+    return frontmatter.raw_kind;
+  }
+
+  const inferred = getSupportedRawFileInfo(frontmatter.raw_path)?.rawKind;
+  return inferred ?? "text";
+}
+
+function getSourceAssetPaths(note: ValidNoteRecord): string[] {
+  return getSourceFrontmatter(note).asset_paths
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function hasVisibleMultimodalReviewTrail(note: ValidNoteRecord): boolean {
+  const frontmatter = getSourceFrontmatter(note);
+  const assetPaths = getSourceAssetPaths(note);
+  if (!assetPaths.includes(frontmatter.raw_path)) {
+    return false;
+  }
+
+  return isSubstantiveSection(extractSection(note.body, "Visual Notes"));
+}
+
+async function lintMultimodalSourceIntegrity(
+  config: KnowledgeBasePluginConfig,
+  manifest: ManifestFile,
+  notes: ValidNoteRecord[],
+  issues: LintIssue[],
+): Promise<void> {
+  for (const note of notes) {
+    if (note.type !== "source") {
+      continue;
+    }
+
+    const frontmatter = getSourceFrontmatter(note);
+    const manifestEntry = manifest.sources[frontmatter.raw_path];
+    const rawKind = inferSourceRawKind(note, manifest);
+    const assetPaths = getSourceAssetPaths(note);
+    const knownAssetPaths = new Set<string>([
+      frontmatter.raw_path,
+      ...(manifestEntry?.asset_refs ?? []).map((entry) => entry.raw_path),
+    ]);
+
+    if (
+      (rawKind === "pdf" || rawKind === "image") &&
+      (assetPaths.length === 0 ||
+        !assetPaths.includes(frontmatter.raw_path) ||
+        assetPaths.some((assetPath) => !knownAssetPaths.has(assetPath)))
+    ) {
+      pushIssue(issues, {
+        code: "unreviewed_asset_source",
+        severity: "warning",
+        path: note.path,
+        message:
+          "source note summarizes a non-text asset but asset_paths is empty or inconsistent with the reviewed raw assets",
+      });
+    }
+
+    if (
+      (rawKind === "pdf" || rawKind === "image") &&
+      (manifestEntry?.representations.length ?? 0) === 0 &&
+      !hasVisibleMultimodalReviewTrail(note)
+    ) {
+      pushIssue(issues, {
+        code: "missing_representation",
+        severity: "warning",
+        path: note.path,
+        message:
+          "non-text source note has no stored representation and no visible multimodal review trail",
+      });
+    }
+
+    if (!manifestEntry || manifestEntry.representations.length === 0) {
+      continue;
+    }
+
+    const latestRepresentation = manifestEntry.representations
+      .slice()
+      .sort((left, right) => right.generated_at.localeCompare(left.generated_at))[0];
+
+    if (!latestRepresentation?.raw_hash) {
+      continue;
+    }
+
+    try {
+      const currentRawHash = await hashFile(await resolveVaultPath(config, frontmatter.raw_path));
+      if (currentRawHash !== latestRepresentation.raw_hash) {
+        pushIssue(issues, {
+          code: "representation_stale",
+          severity: "warning",
+          path: note.path,
+          message:
+            "raw asset changed after the latest stored representation; refresh the representation before trusting this source note",
+        });
+      }
+    } catch {
+      // The missing raw case is already reported elsewhere.
+    }
+  }
+}
+
 const NEGATION_TOKENS = new Set([
   "no",
   "not",
@@ -853,6 +974,7 @@ export async function kbLint(config: KnowledgeBasePluginConfig) {
   const validDerivedNotes = await lintDerivedNotes(config, manifest, knownSourceIds, issues);
   const validNotes = [...validSourceNotes, ...validOutputNotes, ...validDerivedNotes];
 
+  await lintMultimodalSourceIntegrity(config, manifest, validSourceNotes, issues);
   lintDuplicateIds(validNotes, issues);
   lintDraftPlaceholders(validNotes, issues);
   lintCrossLinkHealth(validNotes, issues);

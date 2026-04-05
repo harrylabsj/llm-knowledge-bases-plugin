@@ -1,8 +1,8 @@
 {
   "name": "@harrylabs/llm-knowledge-bases",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "displayName": "LLM Knowledge Bases",
-  "description": "Deterministic Markdown wiki runtime for Obsidian vaults, with standalone CLI, MCP server, and OpenClaw compatibility.",
+  "description": "Representation-first multimodal Markdown wiki runtime for Obsidian vaults, with standalone CLI, MCP server, and OpenClaw compatibility.",
   "keywords": [
     "cli",
     "mcp",
@@ -15,6 +15,10 @@
     "obsidian",
     "markdown",
     "wiki",
+    "multimodal",
+    "pdf",
+    "image",
+    "data",
     "local-first",
     "openclaw"
   ],

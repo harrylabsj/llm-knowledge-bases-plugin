@@ -6,17 +6,22 @@ import type { ManifestFile } from "../src/types.js";
 describe("manifest doc ids", () => {
   it("reuses existing doc ids", () => {
     const manifest: ManifestFile = {
-      schema_version: 1,
+      schema_version: 2,
       vault_root: "/tmp/vault",
       sources: {
         "raw/inbox/example.md": {
           doc_id: "src-example",
           raw_path: "raw/inbox/example.md",
           raw_hash: "sha256:abc",
+          raw_kind: "text",
+          mime_type: "text/markdown",
+          size_bytes: 12,
           source_note_path: "wiki/sources/src-example.md",
           title: "Example",
           compiled_at: null,
           status: "compiled",
+          asset_refs: [],
+          representations: [],
         },
       },
     };
@@ -26,17 +31,22 @@ describe("manifest doc ids", () => {
 
   it("creates collision-safe ids", () => {
     const manifest: ManifestFile = {
-      schema_version: 1,
+      schema_version: 2,
       vault_root: "/tmp/vault",
       sources: {
         "raw/inbox/example.md": {
           doc_id: "src-example",
           raw_path: "raw/inbox/example.md",
           raw_hash: "sha256:abc",
+          raw_kind: "text",
+          mime_type: "text/markdown",
+          size_bytes: 12,
           source_note_path: "wiki/sources/src-example.md",
           title: "Example",
           compiled_at: null,
           status: "compiled",
+          asset_refs: [],
+          representations: [],
         },
       },
     };

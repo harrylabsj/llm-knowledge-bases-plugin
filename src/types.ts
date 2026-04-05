@@ -9,6 +9,36 @@ export type KnowledgeBasePluginConfig = KnowledgeBaseConfig;
 
 export type DerivedNoteKind = "concept" | "entity" | "synthesis";
 
+export type RawKind = "text" | "pdf" | "image" | "data";
+
+export const REPRESENTATION_KINDS = [
+  "native_text",
+  "ocr_text",
+  "page_notes",
+  "vision_notes",
+  "data_profile",
+  "metadata",
+] as const;
+
+export type RepresentationKind = (typeof REPRESENTATION_KINDS)[number];
+
+export type CompileReadiness = "ready" | "needs_representation" | "partial";
+
+export type SupportedRawExtension =
+  | ".md"
+  | ".txt"
+  | ".pdf"
+  | ".png"
+  | ".jpg"
+  | ".jpeg"
+  | ".webp"
+  | ".gif"
+  | ".svg"
+  | ".csv"
+  | ".tsv"
+  | ".json"
+  | ".html";
+
 export type GapCandidateCategory =
   | "missing_link"
   | "unpromoted_output"
@@ -24,18 +54,38 @@ export type GapCandidateDraft = {
   markdown: string;
 };
 
+export type AssetRef = {
+  raw_path: string;
+  mime_type: string;
+  role: "primary" | "attachment" | "figure" | "table" | "preview";
+  raw_hash: string;
+};
+
+export type RepresentationEntry = {
+  kind: RepresentationKind;
+  path: string;
+  content_hash: string;
+  generated_at: string;
+  raw_hash?: string;
+};
+
 export type SourceManifestEntry = {
   doc_id: string;
   raw_path: string;
   raw_hash: string;
+  raw_kind: RawKind;
+  mime_type: string;
+  size_bytes: number;
   source_note_path: string;
   title: string;
   compiled_at: string | null;
   status: "compiled" | "new" | "changed" | "missing_source_note";
+  asset_refs: AssetRef[];
+  representations: RepresentationEntry[];
 };
 
 export type ManifestFile = {
-  schema_version: 1;
+  schema_version: 2;
   vault_root: string;
   sources: Record<string, SourceManifestEntry>;
 };
@@ -52,8 +102,12 @@ export type RawItemStatus = "new" | "changed" | "compiled" | "missing_source_not
 export type RawListItem = {
   raw_path: string;
   title_guess: string;
-  ext: ".md" | ".txt";
+  ext: SupportedRawExtension;
+  raw_kind: RawKind;
+  mime_type: string;
+  size_bytes: number;
   raw_hash: string;
+  representation_count: number;
   status: RawItemStatus;
   doc_id: string;
   source_note_path: string;

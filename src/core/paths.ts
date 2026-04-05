@@ -34,6 +34,7 @@ export function getVaultPaths(config: KnowledgeBasePluginConfig) {
     index,
     log,
     state,
+    representations: `${state}/representations`,
     manifest: `${state}/manifest.json`,
     runs: `${state}/runs.jsonl`,
   };

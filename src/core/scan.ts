@@ -5,8 +5,7 @@ import type { KnowledgeBasePluginConfig, ManifestFile, RawListItem, RawItemStatu
 import { hashFile } from "./hash.js";
 import { loadManifest, resolveCanonicalDocId } from "./manifest.js";
 import { getVaultPaths, resolveVaultPath, toVaultRelativePath } from "./paths.js";
-
-const RAW_EXTENSIONS = new Set([".md", ".txt"]);
+import { getSupportedRawFileInfo } from "./raw-files.js";
 
 async function walkFiles(root: string, current: string, acc: string[]): Promise<void> {
   const entries = await fs.readdir(current, { withFileTypes: true });
@@ -19,8 +18,7 @@ async function walkFiles(root: string, current: string, acc: string[]): Promise<
     if (!entry.isFile()) {
       continue;
     }
-    const ext = path.extname(entry.name).toLowerCase();
-    if (!RAW_EXTENSIONS.has(ext)) {
+    if (!getSupportedRawFileInfo(entry.name)) {
       continue;
     }
     acc.push(toVaultRelativePath(path.relative(root, next)));
@@ -81,8 +79,12 @@ export async function listRawFiles(
   const items: RawListItem[] = [];
   for (const rawPath of files.sort()) {
     const absolute = await resolveVaultPath(config, rawPath);
+    const stats = await fs.stat(absolute);
     const rawHash = await hashFile(absolute);
-    const ext = path.extname(rawPath).toLowerCase() as ".md" | ".txt";
+    const rawInfo = getSupportedRawFileInfo(rawPath);
+    if (!rawInfo) {
+      continue;
+    }
     const statusInfo = await getRawStatus(config, manifest, rawPath, rawHash);
     if (options?.changedOnly && statusInfo.status === "compiled") {
       continue;
@@ -91,8 +93,12 @@ export async function listRawFiles(
     items.push({
       raw_path: rawPath,
       title_guess: guessTitleFromRawPath(rawPath),
-      ext,
+      ext: rawInfo.ext,
+      raw_kind: rawInfo.rawKind,
+      mime_type: rawInfo.mimeType,
+      size_bytes: stats.size,
       raw_hash: rawHash,
+      representation_count: manifest.sources[rawPath]?.representations.length ?? 0,
       status: statusInfo.status,
       doc_id: statusInfo.docId,
       source_note_path: statusInfo.sourceNotePath,

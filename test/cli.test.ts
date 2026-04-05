@@ -73,6 +73,43 @@ describe("standalone CLI", () => {
     });
   });
 
+  it("parses comma-separated representation kinds for kb_read_representations", () => {
+    expect(
+      parseStandaloneCliArgs([
+        "kb_read_representations",
+        "--vault-root",
+        "/vault",
+        "--raw-path",
+        "raw/papers/report.pdf",
+        "--kinds",
+        "ocr_text,metadata",
+      ]),
+    ).toMatchObject({
+      commandName: "kb_read_representations",
+      commandOptions: {
+        rawPath: "raw/papers/report.pdf",
+        kinds: "ocr_text,metadata",
+      },
+    });
+  });
+
+  it("parses kb_prepare_source_bundle with a raw-path argument", () => {
+    expect(
+      parseStandaloneCliArgs([
+        "kb_prepare_source_bundle",
+        "--vault-root",
+        "/vault",
+        "--raw-path",
+        "raw/papers/report.pdf",
+      ]),
+    ).toMatchObject({
+      commandName: "kb_prepare_source_bundle",
+      commandOptions: {
+        rawPath: "raw/papers/report.pdf",
+      },
+    });
+  });
+
   it("runs kb_status against a vault using env fallback config", async () => {
     const vaultRoot = await createTempVault();
     const stdout = createBufferTarget();
@@ -92,6 +129,66 @@ describe("standalone CLI", () => {
     expect(JSON.parse(stdout.read())).toMatchObject({
       vault_root: vaultRoot,
       raw_count: 1,
+    });
+  });
+
+  it("runs kb_prepare_representation from the standalone CLI", async () => {
+    const vaultRoot = await createTempVault();
+    const stdout = createBufferTarget();
+    const stderr = createBufferTarget();
+
+    const exitCode = await runStandaloneKnowledgeBaseCli(
+      [
+        "kb_prepare_representation",
+        "--vault-root",
+        vaultRoot,
+        "--raw-path",
+        "raw/inbox/example-note.md",
+        "--kind",
+        "native_text",
+      ],
+      {
+        stdout: stdout.target,
+        stderr: stderr.target,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stderr.read()).toBe("");
+    expect(JSON.parse(stdout.read())).toMatchObject({
+      doc_id: "src-example-note",
+      raw_path: "raw/inbox/example-note.md",
+      kind: "native_text",
+      representation_path: ".llm-kb/representations/src-example-note/native-text.md",
+    });
+  });
+
+  it("runs kb_get_raw_asset from the standalone CLI", async () => {
+    const vaultRoot = await createTempVault();
+    const stdout = createBufferTarget();
+    const stderr = createBufferTarget();
+
+    const exitCode = await runStandaloneKnowledgeBaseCli(
+      [
+        "kb_get_raw_asset",
+        "--vault-root",
+        vaultRoot,
+        "--raw-path",
+        "raw/inbox/example-note.md",
+      ],
+      {
+        stdout: stdout.target,
+        stderr: stderr.target,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stderr.read()).toBe("");
+    expect(JSON.parse(stdout.read())).toMatchObject({
+      raw_path: "raw/inbox/example-note.md",
+      raw_kind: "text",
+      mime_type: "text/markdown",
+      absolute_path: path.join(vaultRoot, "raw", "inbox", "example-note.md"),
     });
   });
 });

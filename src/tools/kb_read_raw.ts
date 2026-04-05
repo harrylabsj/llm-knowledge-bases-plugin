@@ -4,7 +4,7 @@ import path from "node:path";
 import type { KnowledgeBasePluginConfig } from "../types.js";
 import { hashFile } from "../core/hash.js";
 import { resolveVaultPath } from "../core/paths.js";
-import { requireRawPath, validateRuntimeConfig } from "../core/validate.js";
+import { requireTextReadableRawPath, validateRuntimeConfig } from "../core/validate.js";
 
 function guessTitle(rawPath: string): string {
   return path
@@ -24,7 +24,7 @@ export async function kbReadRaw(
   truncated?: boolean;
 }> {
   await validateRuntimeConfig(config);
-  requireRawPath(config, input.raw_path);
+  requireTextReadableRawPath(config, input.raw_path);
 
   const absolute = await resolveVaultPath(config, input.raw_path);
   const content = await fs.readFile(absolute, "utf8");

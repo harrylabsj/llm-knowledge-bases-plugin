@@ -1,6 +1,6 @@
 # Publishing
 
-This package is designed to ship as a public npm package with three first-class surfaces:
+This package is designed to ship with one shared runtime version across npm and the ClawHub code-plugin release, while exposing three first-class runtime surfaces:
 
 - standalone CLI
 - stdio MCP server
@@ -33,7 +33,7 @@ If you only want to inspect the publish tarball contents:
 npm run pack:dry-run
 ```
 
-## Publish
+## Publish npm
 
 When the release check passes:
 
@@ -41,9 +41,34 @@ When the release check passes:
 npm publish --access public
 ```
 
+## Publish ClawHub code plugin
+
+The ClawHub code plugin intentionally keeps the historical package name `llm-knowledge-bases-plugin`, while the npm package remains `@harrylabs/llm-knowledge-bases`.
+
+After the npm publish succeeds and `dist/` is present, publish the matching ClawHub code-plugin release from the shared workspace root:
+
+```bash
+npm run publish:llm-kb:code-plugin
+```
+
+This command:
+
+- reads the version from [`package.json`](package.json)
+- publishes the code plugin as `llm-knowledge-bases-plugin`
+- points ClawHub source metadata at `harrylabsj/llm-knowledge-bases-plugin`
+- stages a temporary publish-only copy that rewrites `package.json.name` to `llm-knowledge-bases-plugin` so ClawHub can keep the historical package identity
+- preserves `openclaw.install.npmSpec` as `@harrylabs/llm-knowledge-bases`
+- refuses to publish if the publish source and the checked-out source repo differ outside ignored local-only files
+
+To preview the payload without uploading:
+
+```bash
+npm run publish:llm-kb:code-plugin -- --dry-run --json
+```
+
 ## One-Command Local Publish
 
-From the shared workspace root, you can publish the npm runtime and then the ClawHub skill with one command:
+From the shared workspace root, you can publish the npm runtime, the matching ClawHub code plugin, and then the ClawHub skill with one command:
 
 ```bash
 cd /Users/jianghaidong/Library/Mobile\ Documents/com~apple~CloudDocs/codex
@@ -66,6 +91,12 @@ If npm still requires a one-time password, pass it inline or through `NPM_PUBLIS
 
 ```bash
 npm run publish:llm-kb -- --otp 123456
+```
+
+If you want the ClawHub code-plugin release note to differ from the latest git commit subject, pass it inline or through `LLM_KB_PLUGIN_CHANGELOG`:
+
+```bash
+npm run publish:llm-kb -- --plugin-changelog "Ship the 0.4.0 representation-first multimodal runtime"
 ```
 
 For true one-command local publishing without OTP prompts, npm currently requires a granular access token with `Bypass two-factor authentication` enabled for write actions. Official docs:

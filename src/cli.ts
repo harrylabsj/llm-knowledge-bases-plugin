@@ -9,15 +9,20 @@ import type {
 import { kbListRaw } from "./tools/kb_list_raw.js";
 import { kbPrepareDerivedNote } from "./tools/kb_prepare_derived_note.js";
 import { kbPrepareOutput } from "./tools/kb_prepare_output.js";
+import { kbPrepareRepresentation } from "./tools/kb_prepare_representation.js";
+import { kbPrepareSourceBundle } from "./tools/kb_prepare_source_bundle.js";
 import { kbPrepareSource } from "./tools/kb_prepare_source.js";
+import { kbGetRawAsset } from "./tools/kb_get_raw_asset.js";
 import { kbLint } from "./tools/kb_lint.js";
 import { kbReadRaw } from "./tools/kb_read_raw.js";
+import { kbReadRepresentations } from "./tools/kb_read_representations.js";
 import { kbReadNotes } from "./tools/kb_read_notes.js";
 import { kbMapGaps } from "./tools/kb_map_gaps.js";
 import { kbPromoteGap } from "./tools/kb_promote_gap.js";
 import { kbRebuildIndexes } from "./tools/kb_rebuild_indexes.js";
 import { kbSearch } from "./tools/kb_search.js";
 import { kbStatus } from "./tools/kb_status.js";
+import { kbUpsertRepresentation } from "./tools/kb_upsert_representation.js";
 import { kbUpsertDerivedNote } from "./tools/kb_upsert_derived_note.js";
 import { kbUpsertOutput } from "./tools/kb_upsert_output.js";
 import { kbUpsertSourceNote } from "./tools/kb_upsert_source_note.js";
@@ -42,7 +47,12 @@ export type KnowledgeBaseCliCommandName =
   | "kb_status"
   | "kb_list_raw"
   | "kb_read_raw"
+  | "kb_get_raw_asset"
   | "kb_prepare_source"
+  | "kb_prepare_source_bundle"
+  | "kb_prepare_representation"
+  | "kb_upsert_representation"
+  | "kb_read_representations"
   | "kb_upsert_source_note"
   | "kb_prepare_output"
   | "kb_prepare_derived_note"
@@ -91,7 +101,12 @@ export const KB_TOOL_NAMES = [
   "kb_status",
   "kb_list_raw",
   "kb_read_raw",
+  "kb_get_raw_asset",
   "kb_prepare_source",
+  "kb_prepare_source_bundle",
+  "kb_prepare_representation",
+  "kb_upsert_representation",
+  "kb_read_representations",
   "kb_upsert_source_note",
   "kb_prepare_output",
   "kb_prepare_derived_note",
@@ -154,7 +169,7 @@ const COMMAND_SPECS: KnowledgeBaseCliCommandSpec[] = [
     toolName: "kb_list_raw",
     openclawName: "list-raw",
     standaloneAliases: ["list-raw"],
-    description: "List raw markdown/text files in the vault",
+    description: "List supported raw files in the vault with inferred type metadata",
     options: [
       {
         flags: "--changed-only",
@@ -179,7 +194,7 @@ const COMMAND_SPECS: KnowledgeBaseCliCommandSpec[] = [
     toolName: "kb_read_raw",
     openclawName: "read-raw",
     standaloneAliases: ["read-raw"],
-    description: "Read a raw markdown/text file from the vault",
+    description: "Read a text-readable raw file from the vault",
     options: [
       {
         flags: "--raw-path <path>",
@@ -190,6 +205,24 @@ const COMMAND_SPECS: KnowledgeBaseCliCommandSpec[] = [
     ],
     run: async (config, options) =>
       kbReadRaw(config, {
+        raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+      }),
+  },
+  {
+    toolName: "kb_get_raw_asset",
+    openclawName: "get-raw-asset",
+    standaloneAliases: ["get-raw-asset"],
+    description: "Return deterministic metadata plus a safe absolute path for one raw asset",
+    options: [
+      {
+        flags: "--raw-path <path>",
+        description: "Relative raw path, for example raw/papers/report.pdf",
+        key: "rawPath",
+        type: "string",
+      },
+    ],
+    run: async (config, options) =>
+      kbGetRawAsset(config, {
         raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
       }),
   },
@@ -209,6 +242,112 @@ const COMMAND_SPECS: KnowledgeBaseCliCommandSpec[] = [
     run: async (config, options) =>
       kbPrepareSource(config, {
         raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+      }),
+  },
+  {
+    toolName: "kb_prepare_source_bundle",
+    openclawName: "prepare-source-bundle",
+    standaloneAliases: ["prepare-source-bundle"],
+    description: "Return the full compile context for one raw source, including readiness and stored representations",
+    options: [
+      {
+        flags: "--raw-path <path>",
+        description: "Relative raw path, for example raw/papers/report.pdf",
+        key: "rawPath",
+        type: "string",
+      },
+    ],
+    run: async (config, options) =>
+      kbPrepareSourceBundle(config, {
+        raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+      }),
+  },
+  {
+    toolName: "kb_prepare_representation",
+    openclawName: "prepare-representation",
+    standaloneAliases: ["prepare-representation"],
+    description: "Resolve the canonical runtime path for one stored raw representation",
+    options: [
+      {
+        flags: "--raw-path <path>",
+        description: "Relative raw path, for example raw/papers/report.pdf",
+        key: "rawPath",
+        type: "string",
+      },
+      {
+        flags: "--kind <kind>",
+        description: "One of: native_text, ocr_text, page_notes, vision_notes, data_profile, metadata",
+        key: "kind",
+        type: "string",
+      },
+    ],
+    run: async (config, options) =>
+      kbPrepareRepresentation(config, {
+        raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+        kind: requireStringOption(options, "kind", "validation_error: --kind is required"),
+      }),
+  },
+  {
+    toolName: "kb_upsert_representation",
+    openclawName: "upsert-representation",
+    standaloneAliases: ["upsert-representation"],
+    description: "Validate and write one runtime-managed representation for a raw file",
+    options: [
+      {
+        flags: "--raw-path <path>",
+        description: "Relative raw path, for example raw/papers/report.pdf",
+        key: "rawPath",
+        type: "string",
+      },
+      {
+        flags: "--kind <kind>",
+        description: "One of: native_text, ocr_text, page_notes, vision_notes, data_profile, metadata",
+        key: "kind",
+        type: "string",
+      },
+      {
+        flags: "--content <text>",
+        description: "Full representation content to store under .llm-kb/representations/",
+        key: "content",
+        type: "string",
+      },
+    ],
+    run: async (config, options) =>
+      kbUpsertRepresentation(config, {
+        raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+        kind: requireStringOption(options, "kind", "validation_error: --kind is required"),
+        content: requireStringOption(options, "content", "validation_error: --content is required"),
+      }),
+  },
+  {
+    toolName: "kb_read_representations",
+    openclawName: "read-representations",
+    standaloneAliases: ["read-representations"],
+    description: "Read stored representations for one raw file through the runtime boundary",
+    options: [
+      {
+        flags: "--raw-path <path>",
+        description: "Relative raw path, for example raw/papers/report.pdf",
+        key: "rawPath",
+        type: "string",
+      },
+      {
+        flags: "--kinds <list>",
+        description: "Optional comma-separated representation kinds to read",
+        key: "kinds",
+        type: "string",
+      },
+    ],
+    run: async (config, options) =>
+      kbReadRepresentations(config, {
+        raw_path: requireStringOption(options, "rawPath", "invalid_path: --raw-path is required"),
+        kinds:
+          typeof options.kinds === "string"
+            ? options.kinds
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean)
+            : undefined,
       }),
   },
   {

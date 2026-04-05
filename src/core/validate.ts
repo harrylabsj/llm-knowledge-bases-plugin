@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { KnowledgeBasePluginConfig } from "../types.js";
 import { ensureVaultRootReadable } from "./paths.js";
+import { getSupportedRawFileInfo, listSupportedRawExtensions } from "./raw-files.js";
 
 export async function validateRuntimeConfig(config: KnowledgeBasePluginConfig): Promise<void> {
   await ensureVaultRootReadable(config);
@@ -20,13 +21,32 @@ export function requireHeadings(markdown: string, headings: string[]): void {
   }
 }
 
-export function requireRawPath(config: KnowledgeBasePluginConfig, rawPath: string): void {
+function requireRawPathUnderRoot(config: KnowledgeBasePluginConfig, rawPath: string): void {
   if (!rawPath.startsWith(`${config.rawDir}/`)) {
     throw new Error(`invalid_path: raw_path must stay under ${config.rawDir}/`);
   }
+}
 
-  const extension = path.posix.extname(rawPath).toLowerCase();
-  if (extension !== ".md" && extension !== ".txt") {
-    throw new Error(`invalid_path: raw_path must reference a .md or .txt file`);
+export function requireSupportedRawPath(config: KnowledgeBasePluginConfig, rawPath: string) {
+  requireRawPathUnderRoot(config, rawPath);
+
+  const rawInfo = getSupportedRawFileInfo(rawPath);
+  if (!rawInfo) {
+    throw new Error(
+      `invalid_path: raw_path must reference a supported file (${listSupportedRawExtensions().join(", ")})`,
+    );
   }
+
+  return rawInfo;
+}
+
+export function requireTextReadableRawPath(config: KnowledgeBasePluginConfig, rawPath: string) {
+  const rawInfo = requireSupportedRawPath(config, rawPath);
+  if (!rawInfo.textReadable) {
+    throw new Error(
+      `invalid_path: raw_path must reference a text-readable raw file; ${path.posix.extname(rawPath).toLowerCase()} requires kb_prepare_representation, kb_upsert_representation, and kb_read_representations first`,
+    );
+  }
+
+  return rawInfo;
 }

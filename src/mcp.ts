@@ -1,16 +1,21 @@
-import type { KnowledgeBasePluginConfig } from "./types.js";
+import { REPRESENTATION_KINDS, type KnowledgeBasePluginConfig } from "./types.js";
 import { kbLint } from "./tools/kb_lint.js";
 import { kbListRaw } from "./tools/kb_list_raw.js";
 import { kbMapGaps } from "./tools/kb_map_gaps.js";
 import { kbPrepareDerivedNote } from "./tools/kb_prepare_derived_note.js";
 import { kbPrepareOutput } from "./tools/kb_prepare_output.js";
+import { kbPrepareRepresentation } from "./tools/kb_prepare_representation.js";
+import { kbPrepareSourceBundle } from "./tools/kb_prepare_source_bundle.js";
 import { kbPrepareSource } from "./tools/kb_prepare_source.js";
 import { kbPromoteGap } from "./tools/kb_promote_gap.js";
+import { kbGetRawAsset } from "./tools/kb_get_raw_asset.js";
 import { kbReadNotes } from "./tools/kb_read_notes.js";
 import { kbReadRaw } from "./tools/kb_read_raw.js";
+import { kbReadRepresentations } from "./tools/kb_read_representations.js";
 import { kbRebuildIndexes } from "./tools/kb_rebuild_indexes.js";
 import { kbSearch } from "./tools/kb_search.js";
 import { kbStatus } from "./tools/kb_status.js";
+import { kbUpsertRepresentation } from "./tools/kb_upsert_representation.js";
 import { kbUpsertDerivedNote } from "./tools/kb_upsert_derived_note.js";
 import { kbUpsertOutput } from "./tools/kb_upsert_output.js";
 import { kbUpsertSourceNote } from "./tools/kb_upsert_source_note.js";
@@ -67,7 +72,7 @@ type ToolDefinition = {
 };
 
 const SERVER_NAME = "llm-knowledge-bases-mcp";
-const SERVER_VERSION = "0.3.1";
+const SERVER_VERSION = "0.4.0";
 const FALLBACK_PROTOCOL_VERSION = "2025-03-26";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,7 +132,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
     tool: {
       name: "kb_list_raw",
       title: "KB List Raw",
-      description: "List raw Markdown or text files in the managed vault, optionally filtering to changed items only.",
+      description: "List supported raw files in the managed vault, optionally filtering to changed items only.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -151,7 +156,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
     tool: {
       name: "kb_read_raw",
       title: "KB Read Raw",
-      description: "Read one raw file from the managed vault and return its content plus the current raw hash.",
+      description: "Read one text-readable raw file from the managed vault and return its content plus the current raw hash.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -170,6 +175,31 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         throw new Error("validation_error: raw_path is required");
       }
       return kbReadRaw(config, { raw_path: args.raw_path });
+    },
+  },
+  {
+    tool: {
+      name: "kb_get_raw_asset",
+      title: "KB Get Raw Asset",
+      description: "Return deterministic metadata and a safe absolute path for one raw asset so external viewers can inspect it.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["raw_path"],
+        properties: {
+          raw_path: { type: "string" },
+        },
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    handler: async (config, args) => {
+      if (typeof args.raw_path !== "string") {
+        throw new Error("validation_error: raw_path is required");
+      }
+      return kbGetRawAsset(config, { raw_path: args.raw_path });
     },
   },
   {
@@ -195,6 +225,144 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         throw new Error("validation_error: raw_path is required");
       }
       return kbPrepareSource(config, { raw_path: args.raw_path });
+    },
+  },
+  {
+    tool: {
+      name: "kb_prepare_source_bundle",
+      title: "KB Prepare Source Bundle",
+      description: "Return the full compile context for one raw source, including raw metadata, asset refs, stored representations, and compile readiness.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["raw_path"],
+        properties: {
+          raw_path: { type: "string" },
+        },
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    handler: async (config, args) => {
+      if (typeof args.raw_path !== "string") {
+        throw new Error("validation_error: raw_path is required");
+      }
+      return kbPrepareSourceBundle(config, { raw_path: args.raw_path });
+    },
+  },
+  {
+    tool: {
+      name: "kb_prepare_representation",
+      title: "KB Prepare Representation",
+      description: "Resolve the canonical runtime-managed path for one intermediate raw representation before writing it.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["raw_path", "kind"],
+        properties: {
+          raw_path: { type: "string" },
+          kind: {
+            type: "string",
+            enum: [...REPRESENTATION_KINDS],
+          },
+        },
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    handler: async (config, args) => {
+      if (typeof args.raw_path !== "string") {
+        throw new Error("validation_error: raw_path is required");
+      }
+      if (typeof args.kind !== "string") {
+        throw new Error("validation_error: kind is required");
+      }
+      return kbPrepareRepresentation(config, {
+        raw_path: args.raw_path,
+        kind: args.kind,
+      });
+    },
+  },
+  {
+    tool: {
+      name: "kb_upsert_representation",
+      title: "KB Upsert Representation",
+      description: "Validate and write a runtime-managed representation under .llm-kb/representations/, then update manifest metadata.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["raw_path", "kind", "content"],
+        properties: {
+          raw_path: { type: "string" },
+          kind: {
+            type: "string",
+            enum: [...REPRESENTATION_KINDS],
+          },
+          content: { type: "string" },
+        },
+      },
+    },
+    handler: async (config, args) => {
+      if (typeof args.raw_path !== "string") {
+        throw new Error("validation_error: raw_path is required");
+      }
+      if (typeof args.kind !== "string") {
+        throw new Error("validation_error: kind is required");
+      }
+      if (typeof args.content !== "string") {
+        throw new Error("validation_error: content is required");
+      }
+      return kbUpsertRepresentation(config, {
+        raw_path: args.raw_path,
+        kind: args.kind,
+        content: args.content,
+      });
+    },
+  },
+  {
+    tool: {
+      name: "kb_read_representations",
+      title: "KB Read Representations",
+      description: "Read one or more stored raw representations for a single raw file through the runtime boundary.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["raw_path"],
+        properties: {
+          raw_path: { type: "string" },
+          kinds: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [...REPRESENTATION_KINDS],
+            },
+            minItems: 1,
+          },
+        },
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    handler: async (config, args) => {
+      if (typeof args.raw_path !== "string") {
+        throw new Error("validation_error: raw_path is required");
+      }
+      if (
+        args.kinds !== undefined &&
+        (!Array.isArray(args.kinds) || args.kinds.some((item) => typeof item !== "string"))
+      ) {
+        throw new Error("validation_error: kinds must be an array of strings");
+      }
+      return kbReadRepresentations(config, {
+        raw_path: args.raw_path,
+        kinds: Array.isArray(args.kinds) ? args.kinds : undefined,
+      });
     },
   },
   {
@@ -554,7 +722,7 @@ export function createKnowledgeBaseMcpServer(config: KnowledgeBasePluginConfig) 
               version: SERVER_VERSION,
             },
             instructions:
-              "Use kb_search before grounded answers, kb_prepare_source before kb_upsert_source_note, and never write vault files outside these tools.",
+              "Use kb_search before grounded answers, use kb_prepare_source_bundle and kb_get_raw_asset plus representation tools for non-text raw assets, use kb_prepare_source before kb_upsert_source_note for direct text ingest, and never write vault files outside these tools.",
           },
         };
       }
