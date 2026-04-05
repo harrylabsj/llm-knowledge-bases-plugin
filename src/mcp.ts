@@ -67,7 +67,7 @@ type ToolDefinition = {
 };
 
 const SERVER_NAME = "llm-knowledge-bases-mcp";
-const SERVER_VERSION = "0.3.0";
+const SERVER_VERSION = "0.3.1";
 const FALLBACK_PROTOCOL_VERSION = "2025-03-26";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
