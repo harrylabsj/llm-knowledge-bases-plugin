@@ -110,6 +110,22 @@ describe("standalone CLI", () => {
     });
   });
 
+  it("parses kb_repair_source_ids with an apply flag", () => {
+    expect(
+      parseStandaloneCliArgs([
+        "kb_repair_source_ids",
+        "--vault-root",
+        "/vault",
+        "--apply",
+      ]),
+    ).toMatchObject({
+      commandName: "kb_repair_source_ids",
+      commandOptions: {
+        apply: true,
+      },
+    });
+  });
+
   it("runs kb_status against a vault using env fallback config", async () => {
     const vaultRoot = await createTempVault();
     const stdout = createBufferTarget();

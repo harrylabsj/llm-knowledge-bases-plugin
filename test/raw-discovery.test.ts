@@ -107,6 +107,22 @@ describe("raw discovery and manifest migration", () => {
     expect(prepared.size_bytes).toBeGreaterThan(0);
   });
 
+  it("prepares a stable non-untitled doc_id for non-ascii raw file names", async () => {
+    const config = await createTempVault();
+    await fs.writeFile(
+      path.join(config.vaultRoot, "raw", "inbox", "成为波伏瓦.md"),
+      "# 成为波伏瓦\n",
+      "utf8",
+    );
+
+    const prepared = await kbPrepareSource(config, {
+      raw_path: "raw/inbox/成为波伏瓦.md",
+    });
+
+    expect(prepared.doc_id).toMatch(/^src-u-[a-f0-9]{12}$/);
+    expect(prepared.source_note_path).toBe(`wiki/sources/${prepared.doc_id}.md`);
+  });
+
   it("migrates a legacy manifest to schema version 2 with inferred multimodal fields", async () => {
     const config = await createTempVault();
     const manifestPath = path.join(config.vaultRoot, ".llm-kb", "manifest.json");

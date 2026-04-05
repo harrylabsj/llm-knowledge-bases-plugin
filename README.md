@@ -12,13 +12,15 @@ Inspired by a public workflow shared by Andrej Karpathy (@karpathy). From raw te
 If you want the workflow-first entry point, start with the companion skill.
 Use this package when you want the underlying runtime as an installable CLI/MCP toolchain.
 
-## What 0.4.0 Implements
+## What 0.4.1 Implements
 
 This release makes the runtime representation-first and explicitly multimodal:
 
 - a raw/wiki/schema operating model with runtime-owned structure and agent-owned synthesis
 - supported raw kinds for text (`.md`, `.txt`), PDFs, images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.svg`), and structured data (`.csv`, `.tsv`, `.json`, `.html`)
 - manifest schema version `2`, including `raw_kind`, `mime_type`, `size_bytes`, `asset_refs`, and stored `representations`
+- source-id repair through `kb_repair_source_ids`, so stale source doc ids, source note paths, and raw hashes can be repaired without throwing away readable existing ids
+- stable non-ASCII source ids plus deterministic repair workflows, so legacy `src-untitled-*` records are migrated forward instead of being preserved by stale manifest state
 - safe raw-asset inspection through `kb_get_raw_asset`, including deterministic metadata plus a safe absolute path for local viewers
 - full compile context through `kb_prepare_source_bundle`, including asset refs, stored representations, and `compile_readiness`
 - runtime-managed representation storage under `.llm-kb/representations/` through `kb_prepare_representation`, `kb_upsert_representation`, and `kb_read_representations`
@@ -85,6 +87,8 @@ llm-knowledge-bases kb_prepare_derived_note --vault-root /vault --kind concept -
 llm-knowledge-bases kb_upsert_derived_note --vault-root /vault --markdown '<full markdown>'
 llm-knowledge-bases kb_map_gaps --vault-root /vault --limit 10
 llm-knowledge-bases kb_promote_gap --vault-root /vault --note-id synthesis-retrieval-vs-memory
+llm-knowledge-bases kb_repair_source_ids --vault-root /vault
+llm-knowledge-bases kb_repair_source_ids --vault-root /vault --apply
 llm-knowledge-bases kb_rebuild_indexes --vault-root /vault
 llm-knowledge-bases kb_search --vault-root /vault --query 'agent memory' --types source,concept,synthesis
 llm-knowledge-bases kb_read_notes --vault-root /vault --paths wiki/index.md,wiki/concepts/concept-agent-memory.md
@@ -111,6 +115,7 @@ The MCP server exposes:
 - `kb_upsert_derived_note`
 - `kb_map_gaps`
 - `kb_promote_gap`
+- `kb_repair_source_ids`
 - `kb_rebuild_indexes`
 - `kb_search`
 - `kb_read_notes`

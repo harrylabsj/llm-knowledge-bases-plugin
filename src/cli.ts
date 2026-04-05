@@ -12,6 +12,7 @@ import { kbPrepareOutput } from "./tools/kb_prepare_output.js";
 import { kbPrepareRepresentation } from "./tools/kb_prepare_representation.js";
 import { kbPrepareSourceBundle } from "./tools/kb_prepare_source_bundle.js";
 import { kbPrepareSource } from "./tools/kb_prepare_source.js";
+import { kbRepairSourceIds } from "./tools/kb_repair_source_ids.js";
 import { kbGetRawAsset } from "./tools/kb_get_raw_asset.js";
 import { kbLint } from "./tools/kb_lint.js";
 import { kbReadRaw } from "./tools/kb_read_raw.js";
@@ -63,6 +64,7 @@ export type KnowledgeBaseCliCommandName =
   | "kb_read_notes"
   | "kb_map_gaps"
   | "kb_promote_gap"
+  | "kb_repair_source_ids"
   | "kb_lint";
 
 type KnowledgeBaseCliCommandSpec = {
@@ -117,6 +119,7 @@ export const KB_TOOL_NAMES = [
   "kb_read_notes",
   "kb_map_gaps",
   "kb_promote_gap",
+  "kb_repair_source_ids",
   "kb_lint",
 ] as const;
 
@@ -576,6 +579,25 @@ const COMMAND_SPECS: KnowledgeBaseCliCommandSpec[] = [
         note_id: typeof options.noteId === "string" ? options.noteId : undefined,
         kind: typeof options.kind === "string" ? options.kind : undefined,
         title: typeof options.title === "string" ? options.title : undefined,
+      }),
+  },
+  {
+    toolName: "kb_repair_source_ids",
+    openclawName: "repair-source-ids",
+    standaloneAliases: ["repair-source-ids"],
+    description:
+      "Repair stale source doc_ids, source note paths, and raw hashes, preserving existing readable ids when possible",
+    options: [
+      {
+        flags: "--apply",
+        description: "Write the repair changes instead of returning a dry-run plan",
+        key: "apply",
+        type: "boolean",
+      },
+    ],
+    run: async (config, options) =>
+      kbRepairSourceIds(config, {
+        apply: options.apply === true,
       }),
   },
   {

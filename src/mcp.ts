@@ -7,6 +7,7 @@ import { kbPrepareOutput } from "./tools/kb_prepare_output.js";
 import { kbPrepareRepresentation } from "./tools/kb_prepare_representation.js";
 import { kbPrepareSourceBundle } from "./tools/kb_prepare_source_bundle.js";
 import { kbPrepareSource } from "./tools/kb_prepare_source.js";
+import { kbRepairSourceIds } from "./tools/kb_repair_source_ids.js";
 import { kbPromoteGap } from "./tools/kb_promote_gap.js";
 import { kbGetRawAsset } from "./tools/kb_get_raw_asset.js";
 import { kbReadNotes } from "./tools/kb_read_notes.js";
@@ -72,7 +73,7 @@ type ToolDefinition = {
 };
 
 const SERVER_NAME = "llm-knowledge-bases-mcp";
-const SERVER_VERSION = "0.4.0";
+const SERVER_VERSION = "0.4.1";
 const FALLBACK_PROTOCOL_VERSION = "2025-03-26";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -652,6 +653,29 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
         note_id: typeof args.note_id === "string" ? args.note_id : undefined,
         kind: typeof args.kind === "string" ? args.kind : undefined,
         title: typeof args.title === "string" ? args.title : undefined,
+      }),
+  },
+  {
+    tool: {
+      name: "kb_repair_source_ids",
+      title: "KB Repair Source IDs",
+      description:
+        "Repair stale source doc_ids, source note paths, and raw hashes, preserving existing readable ids when possible.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          apply: { type: "boolean" },
+        },
+      },
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+      },
+    },
+    handler: async (config, args) =>
+      kbRepairSourceIds(config, {
+        apply: typeof args.apply === "boolean" ? args.apply : undefined,
       }),
   },
   {

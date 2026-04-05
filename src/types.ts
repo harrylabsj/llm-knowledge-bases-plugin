@@ -199,3 +199,29 @@ export type GapPromotionResult = {
     kind: DerivedNoteKind;
   };
 };
+
+export type RepairSourceIdsItem = {
+  raw_path: string;
+  old_doc_id: string | null;
+  new_doc_id: string;
+  old_source_note_path: string | null;
+  new_source_note_path: string;
+  source_note_found: boolean;
+  source_note_rewritten: boolean;
+  manifest_updated: boolean;
+};
+
+export type RepairSourceIdsResult = {
+  ok: true;
+  apply: boolean;
+  scanned_raw_count: number;
+  repaired_count: number;
+  source_note_rewrite_count: number;
+  manifest_update_count: number;
+  rebuilt_indexes: boolean;
+  repairs: RepairSourceIdsItem[];
+  skipped: Array<{
+    raw_path: string;
+    reason: string;
+  }>;
+};

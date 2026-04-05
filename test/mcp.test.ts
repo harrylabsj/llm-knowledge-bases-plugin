@@ -61,6 +61,7 @@ describe("knowledge base MCP server", () => {
         "kb_read_notes",
         "kb_map_gaps",
         "kb_promote_gap",
+        "kb_repair_source_ids",
         "kb_lint",
       ]),
     );

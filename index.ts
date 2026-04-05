@@ -39,6 +39,7 @@ export { kbPrepareOutput } from "./src/tools/kb_prepare_output.js";
 export { kbPrepareRepresentation } from "./src/tools/kb_prepare_representation.js";
 export { kbPrepareSourceBundle } from "./src/tools/kb_prepare_source_bundle.js";
 export { kbPrepareSource } from "./src/tools/kb_prepare_source.js";
+export { kbRepairSourceIds } from "./src/tools/kb_repair_source_ids.js";
 export { kbPromoteGap } from "./src/tools/kb_promote_gap.js";
 export { kbGetRawAsset } from "./src/tools/kb_get_raw_asset.js";
 export { kbReadNotes } from "./src/tools/kb_read_notes.js";
@@ -82,6 +83,8 @@ export type {
   RawItemStatus,
   RawListItem,
   ReadNoteItem,
+  RepairSourceIdsItem,
+  RepairSourceIdsResult,
   RepresentationEntry,
   RepresentationKind,
   RunLogEntry,

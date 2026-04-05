@@ -155,21 +155,31 @@ export async function ensureManifest(config: KnowledgeBasePluginConfig): Promise
   return manifest;
 }
 
+export function buildSourceDocIdBase(rawPath: string): string {
+  return `src-${slugify(path.posix.parse(rawPath).name)}`;
+}
+
+export function allocateUniqueDocId(preferredDocId: string, usedDocIds: Iterable<string>): string {
+  const used = new Set(usedDocIds);
+  if (!used.has(preferredDocId)) {
+    return preferredDocId;
+  }
+
+  let counter = 2;
+  while (used.has(`${preferredDocId}-${counter}`)) {
+    counter += 1;
+  }
+  return `${preferredDocId}-${counter}`;
+}
+
 export function resolveCanonicalDocId(manifest: ManifestFile, rawPath: string): string {
   const existing = manifest.sources[rawPath];
   if (existing) {
     return existing.doc_id;
   }
 
-  const base = `src-${slugify(path.parse(rawPath).name)}`;
-  const used = new Set(Object.values(manifest.sources).map((item) => item.doc_id));
-  if (!used.has(base)) {
-    return base;
-  }
-
-  let counter = 2;
-  while (used.has(`${base}-${counter}`)) {
-    counter += 1;
-  }
-  return `${base}-${counter}`;
+  return allocateUniqueDocId(
+    buildSourceDocIdBase(rawPath),
+    Object.values(manifest.sources).map((item) => item.doc_id),
+  );
 }
