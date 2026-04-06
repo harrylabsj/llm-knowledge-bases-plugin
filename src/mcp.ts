@@ -73,7 +73,7 @@ type ToolDefinition = {
 };
 
 const SERVER_NAME = "llm-knowledge-bases-mcp";
-const SERVER_VERSION = "0.4.2";
+const SERVER_VERSION = "0.4.3";
 const FALLBACK_PROTOCOL_VERSION = "2025-03-26";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,6 +121,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       inputSchema: {
         type: "object",
         additionalProperties: false,
+        properties: {},
       },
       annotations: {
         readOnlyHint: true,
@@ -511,6 +512,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       inputSchema: {
         type: "object",
         additionalProperties: false,
+        properties: {},
       },
     },
     handler: async (config) => kbRebuildIndexes(config),
@@ -686,6 +688,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
       inputSchema: {
         type: "object",
         additionalProperties: false,
+        properties: {},
       },
       annotations: {
         readOnlyHint: true,

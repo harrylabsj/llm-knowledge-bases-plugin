@@ -67,6 +67,15 @@ describe("knowledge base MCP server", () => {
     );
   });
 
+  it("defines explicit properties for every object input schema", async () => {
+    const tools = listKnowledgeBaseMcpTools();
+    for (const tool of tools) {
+      if (tool.inputSchema.type === "object") {
+        expect(tool.inputSchema).toHaveProperty("properties");
+      }
+    }
+  });
+
   it("handles initialize, tools/list, and tools/call requests", async () => {
     const config = await createTempVault();
     const server = createKnowledgeBaseMcpServer(config);
