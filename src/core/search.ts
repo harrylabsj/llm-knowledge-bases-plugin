@@ -29,7 +29,7 @@ type ScoredQuery = {
 };
 
 function tokenize(input: string): string[] {
-  return [...new Set(input.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean))];
+  return [...new Set(input.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean))];
 }
 
 function escapeRegExp(input: string): string {
